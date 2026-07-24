@@ -9,6 +9,20 @@
 
 
 
+
+## v7.0.1 — 2026-07-24
+
+### Added
+- hold the SessionStart eager layer under a byte budget
+
+### Changed
+- move scripts/ to .scripts/
+- make env-export quoting unskippable
+
+### Fixed
+- quote vault path in environment export
+- release template leads with the ShardMind install path
+
 ## v7.0.0 — 2026-07-19
 
 ### Added
