@@ -75,7 +75,13 @@ All durable knowledge lives in the vault, inside `brain/` topic notes. The agent
 
 ### 3. Progressive disclosure
 
-`SessionStart` injects ~2K tokens of lightweight context (North Star excerpt, git summary, tasks, file listing). Full note contents are pulled on demand via QMD semantic search. A full file read is a last resort, not a default. This keeps session cost flat regardless of vault size.
+`SessionStart` injects a small block of lightweight context (North Star excerpt, git summary, tasks, file listing). Full note contents are pulled on demand via QMD semantic search. A full file read is a last resort, not a default.
+
+Session cost stays flat regardless of vault size because it is **enforced**, not merely intended. Two of those inputs grow with the vault — the file listing grows with every note, the North Star excerpt with every status edit — so without a ceiling the eager layer drifts upward a little every day and nobody notices until a session is paying for it. A byte budget holds the total; over it, the cheapest-to-lose sections degrade to pointers, worst-priority first, and the closing size meter names each one it dropped. Line-based caps cannot do this job: shortening entries under a line cap just slides the window deeper and refills it. Budget and listing-collapse threshold are set in `vault-manifest.json`.
+
+**The budget is a runaway guard, not a squeeze — set it above everything worth injecting.** The meter is the detector; the budget is only the emergency brake. A ceiling low enough to bite in normal use degrades your context every session instead of catching a problem, and the two failures are not symmetric: a ceiling set too high still leaves the drift visible in the meter every session, while one set too low silently removes context you never learn you were missing. If the budget starts firing, the right response is usually to raise it and look at what grew — not to accept running degraded.
+
+The same asymmetry decides *what* may degrade. Rank the eager layer by **value density, not size**: filenames are the cheapest bytes (one Glob rebuilds them), so the listing surrenders first. Anything irreplaceable — identity, personal context, correctness guards — carries no fallback and is never traded for plumbing. Optimizing this layer means removing **duplication**, not **information**, which is exactly why re-entry via resume/compact drops the static bulk: it is already in the conversation, so omitting it loses nothing.
 
 ### 4. Agent-agnostic core
 
