@@ -133,7 +133,7 @@ QMD is where most of the agent's retrieval intelligence comes from. Optional in 
 
 ```bash
 npm install -g @tobilu/qmd
-node --experimental-strip-types scripts/qmd-bootstrap.ts
+node --experimental-strip-types .scripts/qmd-bootstrap.ts
 ```
 
 The bootstrap is idempotent — safe to re-run. It reads the `qmd_index` and `qmd_context` fields from `vault-manifest.json` (default index name: `obsidian-mind`), registers the collection, attaches the context, and builds the index + embeddings. The SessionStart hook and `.mcp.json` wrapper both read the same manifest field, so CLI queries, the MCP server, and the re-index all scope to the same named SQLite store. This isolates the vault from any other QMD-using vault on the same machine.
@@ -373,6 +373,8 @@ templates/              Obsidian templates with YAML frontmatter
   scripts/              Hook scripts + charcount.ts utility
   skills/               Obsidian + QMD skills
   settings.json         5 hooks configuration
+
+.scripts/                Vault-level tooling — QMD bootstrap (run once on a fresh clone)
 
 .shardmind/             ShardMind sidecar — only used if installed via `shardmind install`
   shard.yaml            Manifest (name, version, modules, hooks)

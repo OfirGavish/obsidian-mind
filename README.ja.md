@@ -129,7 +129,7 @@ git clone https://github.com/breferrari/obsidian-mind.git
 
 ```bash
 npm install -g @tobilu/qmd
-node --experimental-strip-types scripts/qmd-bootstrap.ts
+node --experimental-strip-types .scripts/qmd-bootstrap.ts
 ```
 
 ブートストラップは冪等で、再実行しても安全です。`vault-manifest.json` の `qmd_index` と `qmd_context` フィールドを読み取り、名前付きインデックスを登録してエンベディングを生成します（デフォルトのインデックス名は `obsidian-mind`）。SessionStart フック、`.mcp.json` のラッパー、CLI コマンドはすべて同じマニフェストフィールドを参照するため、同一マシン上の他のボールトと QMD データが混ざりません。CLI 実行時は常に `--index <名前>` を渡してください:
@@ -366,6 +366,8 @@ templates/              YAMLフロントマター付きObsidianテンプレー�
   scripts/              フックスクリプト + charcount.tsユーティリティ
   skills/               Obsidian + QMDスキル
   settings.json         5つのフック設定
+
+.scripts/                ボールトレベルのツール — QMDブートストラップ（新規クローン時に一度実行）
 
 .shardmind/             ShardMindサイドカー — `shardmind install`でインストールした場合のみ使用
   shard.yaml            マニフェスト（名前、バージョン、モジュール、フック）

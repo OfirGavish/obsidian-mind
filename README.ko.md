@@ -129,7 +129,7 @@ git clone https://github.com/breferrari/obsidian-mind.git
 
 ```bash
 npm install -g @tobilu/qmd
-node --experimental-strip-types scripts/qmd-bootstrap.ts
+node --experimental-strip-types .scripts/qmd-bootstrap.ts
 ```
 
 부트스트랩은 멱등성이 있어 재실행해도 안전합니다. `vault-manifest.json` 의 `qmd_index` 와 `qmd_context` 필드를 읽어 명명된 인덱스를 등록하고 임베딩을 생성합니다 (기본 인덱스 이름: `obsidian-mind`). SessionStart 훅, `.mcp.json` 래퍼, CLI 명령은 모두 동일한 매니페스트 필드를 참조하므로, 같은 머신의 다른 볼트와 QMD 데이터가 섞이지 않습니다. CLI 명령에는 항상 `--index <이름>` 을 전달하세요:
@@ -366,6 +366,8 @@ templates/              YAML 프론트매터가 포함된 Obsidian 템플릿
   scripts/              훅 스크립트 + charcount.ts 유틸리티
   skills/               Obsidian + QMD 스킬
   settings.json         5개 훅 설정
+
+.scripts/                볼트 수준 도구 — QMD 부트스트랩 (새 클론에서 한 번 실행)
 
 .shardmind/             ShardMind 사이드카 — `shardmind install`로 설치한 경우에만 사용
   shard.yaml            매니페스트 (이름, 버전, 모듈, 훅)
