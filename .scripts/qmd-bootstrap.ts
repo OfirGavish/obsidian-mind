@@ -51,7 +51,11 @@ import {
 	translateToGlob,
 	writeQmdIgnore,
 } from "../.claude/scripts/lib/qmd-ignore.ts";
-import { isValidQmdIndex } from "../.claude/scripts/lib/session-start.ts";
+import {
+	deriveQmdIndex,
+	isValidQmdIndex,
+	resolveQmdIndex,
+} from "../.claude/scripts/lib/session-start.ts";
 
 type ManifestSubset = {
 	readonly qmd_index?: string;
@@ -60,9 +64,17 @@ type ManifestSubset = {
 	readonly template?: string;
 };
 
-function readManifest(): ManifestSubset | null {
+function readManifestRaw(): string | null {
 	try {
-		const raw = readFileSync("vault-manifest.json", { encoding: "utf-8" });
+		return readFileSync("vault-manifest.json", { encoding: "utf-8" });
+	} catch {
+		return null; /* handled by caller */
+	}
+}
+
+function parseManifest(raw: string | null): ManifestSubset | null {
+	if (raw === null) return null;
+	try {
 		const parsed = JSON.parse(raw) as unknown;
 		if (parsed !== null && typeof parsed === "object") {
 			return parsed as ManifestSubset;
@@ -180,7 +192,8 @@ function runIdempotent(
 }
 
 function main(): void {
-	const manifest = readManifest();
+	const manifestRaw = readManifestRaw();
+	const manifest = parseManifest(manifestRaw);
 	if (!manifest) {
 		process.stderr.write(
 			"vault-manifest.json missing or unreadable. Run from the vault root.\n",
@@ -188,20 +201,50 @@ function main(): void {
 		process.exit(1);
 	}
 
-	const index = manifest.qmd_index;
-	if (!index) {
+	// A non-empty `qmd_index` is an explicit pin and is taken literally — a
+	// typo there must fail loudly rather than silently fall through to a
+	// derived name, or the vault quietly indexes somewhere the user didn't ask
+	// for. Only an absent/empty field opts into derivation (#137).
+	const pinned = manifest.qmd_index;
+	if (pinned !== undefined && pinned !== "" && !isValidQmdIndex(pinned)) {
 		process.stderr.write(
-			"vault-manifest.json has no `qmd_index` field. Add one before running the bootstrap.\n",
-		);
-		process.exit(1);
-	}
-	if (!isValidQmdIndex(index)) {
-		process.stderr.write(
-			`vault-manifest.json \`qmd_index\` value ${JSON.stringify(index)} is not a valid index name.\n` +
+			`vault-manifest.json \`qmd_index\` value ${JSON.stringify(pinned)} is not a valid index name.\n` +
 				"Allowed: alphanumerics, dot, dash, underscore; must start with an alphanumeric.\n" +
 				"(The value is used both in CLI argv and a filesystem path, so path separators and whitespace aren't accepted.)\n",
 		);
 		process.exit(1);
+	}
+
+	// Route through the SAME resolver the read surfaces use rather than
+	// reimplementing the precedence here. This script WRITES the store; a
+	// private fallback would populate one index while SessionStart, the
+	// refresh worker, and the MCP wrapper read another — which surfaces as
+	// "0 documents", not as an error.
+	// `process.cwd()` is the vault root: `readManifest()` above already
+	// resolved `vault-manifest.json` relative to it, so a wrong cwd has
+	// already failed.
+	const index = resolveQmdIndex(manifestRaw, process.cwd());
+
+	if (index === null) {
+		process.stderr.write(
+			"Could not determine a qmd index name for this vault.\n" +
+				"The vault folder name yields no usable slug and the manifest has no " +
+				"`template` to fall back on.\n" +
+				'Set one explicitly: "qmd_index": "my-vault" in vault-manifest.json.\n',
+		);
+		process.exit(1);
+	}
+
+	// Reaching the `template` fallback means this vault shares a store with
+	// every other install that did the same — the exact collision #137 fixes.
+	// Keyed on derivation FAILING, not on the resolved name matching
+	// `template`: a vault whose folder legitimately slugifies to the template
+	// name is correctly isolated and must not be warned at.
+	if (!isValidQmdIndex(pinned) && deriveQmdIndex(process.cwd()) === null) {
+		warn(
+			`Vault folder name yields no usable index slug — falling back to the shared '${index}' index. ` +
+				'Set "qmd_index" in vault-manifest.json to keep this vault\'s search store isolated.',
+		);
 	}
 
 	// Resolve once up front so every downstream spawn reuses the same entry.

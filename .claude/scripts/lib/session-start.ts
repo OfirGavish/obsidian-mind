@@ -4,7 +4,7 @@
  * system, or invoking the Obsidian CLI.
  */
 
-import { join } from "node:path";
+import { basename, join, resolve } from "node:path";
 
 import { escapeRegex } from "./regex.ts";
 
@@ -408,6 +408,88 @@ export function parseQmdIndex(manifestJson: string | null): string | null {
 		/* malformed manifest → treat as missing */
 	}
 	return null;
+}
+
+/**
+ * Derive a qmd index name from the vault's own directory name.
+ *
+ * The shipped manifest leaves `qmd_index` empty because the template is one
+ * package installed many times — any literal it ships is identical in every
+ * vault, so two vaults on one machine share a single SQLite store, search
+ * bleeds across them, and re-indexing one clobbers the other (#137). The
+ * install location is the only per-vault identity available without asking
+ * the user a question, and it exists on both install paths.
+ *
+ * The slug rules mirror ShardMind's `slugifyVaultName` (shardmind#143)
+ * deliberately: if a future engine-side substitution ever bakes the name in,
+ * it resolves to the same string this derives, so the two mechanisms cannot
+ * disagree about which store a vault owns.
+ *
+ * Returns null when the folder name has no usable characters (e.g. a purely
+ * non-Latin name), so the caller falls back rather than emitting a broken
+ * index name.
+ */
+export function deriveQmdIndex(vaultRoot: string): string | null {
+	const slug = basename(resolve(vaultRoot))
+		.normalize("NFKD")
+		.toLowerCase()
+		.replace(/[^a-z0-9._-]+/g, "-")
+		.replace(/-{2,}/g, "-")
+		.replace(/^[^a-z0-9]+|[-._]+$/g, "");
+	return isValidQmdIndex(slug) ? slug : null;
+}
+
+/**
+ * Extract a validated `template` name from a manifest source — the shared
+ * package identity, and the last-resort index name when a vault has neither
+ * a pin nor a derivable folder slug.
+ */
+function parseTemplateName(manifestJson: string | null): string | null {
+	if (manifestJson === null) return null;
+	try {
+		const parsed = JSON.parse(manifestJson) as unknown;
+		if (parsed !== null && typeof parsed === "object") {
+			const value = (parsed as Record<string, unknown>)["template"];
+			if (isValidQmdIndex(value)) return value;
+		}
+	} catch {
+		/* malformed manifest → treat as missing */
+	}
+	return null;
+}
+
+/**
+ * The index name this vault owns, in precedence order:
+ *
+ *   1. an explicit `qmd_index` pin,
+ *   2. the vault folder name, slugified,
+ *   3. the manifest `template` name — shared across installs, so it
+ *      reintroduces the collision #137 fixes, but a working shared store
+ *      beats silently indexing somewhere nobody reads.
+ *
+ * Every caller MUST route through here. There are four (SessionStart, the
+ * mid-session refresh worker, the MCP wrapper, the bootstrap script) and they
+ * do not fail loudly when they disagree — one writes to a store another never
+ * reads, which surfaces as "0 documents". Step 3 exists because an earlier
+ * revision had bootstrap fall back to `template` while the read surfaces fell
+ * back to qmd's global index, producing exactly that split.
+ *
+ * Keeping the pin as an override is what makes derivation safe to adopt: a
+ * vault that wants a name surviving a folder rename — or wants to keep a store
+ * it already built — pins the field and nothing derives.
+ *
+ * Null means "use qmd's default global index" and is reachable only when the
+ * manifest is absent or carries neither field.
+ */
+export function resolveQmdIndex(
+	manifestJson: string | null,
+	vaultRoot: string,
+): string | null {
+	return (
+		parseQmdIndex(manifestJson) ??
+		deriveQmdIndex(vaultRoot) ??
+		parseTemplateName(manifestJson)
+	);
 }
 
 /**
