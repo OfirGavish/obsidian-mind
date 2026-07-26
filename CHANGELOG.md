@@ -10,6 +10,17 @@
 
 
 
+
+## v8.0.0 — 2026-07-26
+
+### Added
+- reach the vault from any repo — MCP server and scoped cross-repo memory
+
+### Fixed
+- derive the qmd index per vault instead of shipping a shared name
+- point tsconfig at .scripts/ after the #149 move
+- stop shipping tests for repo-only machinery
+
 ## v7.0.1 — 2026-07-24
 
 ### Added
