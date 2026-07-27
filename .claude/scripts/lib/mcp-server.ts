@@ -27,7 +27,7 @@ import {
 } from "./mcp-exposure.ts";
 import { expandNote } from "./mcp-graph.ts";
 import { qmdSearch, type QmdClient } from "./mcp-qmd-client.ts";
-import { callerProject, callerProjectSource, isVaultItself, PROJECT_MARKER } from "./mcp-caller.ts";
+import { callerProject, callerProjectSource, isVaultItself, PROJECT_MARKER, sumAuditField, sanitize } from "./mcp-caller.ts";
 import { callerPlatforms, digestsFrom, resolvableNames } from "./mcp-memory-bridge.ts";
 import { captureNote } from "./mcp-capture.ts";
 import { semanticMemoryOrder } from "./mcp-memory-bridge.ts";
@@ -39,12 +39,27 @@ import { findSimilar } from "./memory-similarity.ts";
 import { markSuperseded, resolveSupersedes } from "./memory-supersede.ts";
 import { health } from "./memory-discover.ts";
 import { resolveQmdEntry, buildQmdCommand } from "./qmd.ts";
+import {
+	resolveReasonConfig,
+	reasonUsage,
+	reasonAuditDetail,
+	runReasoning,
+	reasoningPrompt,
+	visibleHits,
+	resolveClaudeCommand,
+	writeIsolatedMcpConfig,
+	writeReasoningRecord,
+	describeRefusal,
+	REASON_ACTION,
+} from "./mcp-reason.ts";
 
 const PROTOCOL_VERSION = "2025-11-25";
 const SERVER_NAME = "om";
 const SERVER_VERSION = "0.1.0";
 const DEFAULT_RECALL_LIMIT = 20;
 const REINDEX_TIMEOUT_MS = 20_000;
+/** How many search hits seed a reasoning spawn. */
+const REASON_SEED_HITS = 6;
 
 export interface ServerDeps {
 	readonly ctx: VaultContext;
@@ -55,6 +70,13 @@ export interface ServerDeps {
 	readonly audit: (action: string, detail?: Record<string, unknown>) => void;
 	readonly reindex?: () => boolean;
 	readonly now?: () => Date;
+	/**
+	 * Injectable for the same reason `reindex` and `now` are: without it, every
+	 * `reason` outcome except the empty-question refusal needs a real spawn to
+	 * reach, so the refusal paths — including "no answer, never a partial one",
+	 * which is this tool's headline behaviour — could not be asserted at all.
+	 */
+	readonly runReason?: typeof runReasoning;
 }
 
 const text = (s: string): { content: { type: "text"; text: string }[] } => ({
@@ -112,6 +134,7 @@ export function createHandlers(deps: ServerDeps): Handlers {
 	const { ctx, policy, session, qmd, audit } = deps;
 	const now = deps.now ?? (() => new Date());
 	const reindex = deps.reindex ?? (() => reindexSync(ctx.qmdIndex));
+	const runReason = deps.runReason ?? runReasoning;
 	// One cache per server, living exactly as long as the process that owns it.
 	const memoryIndex = createMemoryIndex(ctx.vaultRoot, ctx.memoryRoot);
 
@@ -379,6 +402,126 @@ export function createHandlers(deps: ServerDeps): Handlers {
 		].join("\n");
 	}
 
+	/**
+	 * `reason` — seed from search, spawn, log, hand back the answer.
+	 *
+	 * A call with no question in it is the only one refused.
+	 */
+	async function callReason(args: Record<string, unknown>): Promise<string> {
+		const question = String(args.question ?? "").trim();
+		if (!question) return describeRefusal("no question given.", "Ask the judgement you need, in full.");
+
+		// Nothing to reason over, and nothing coherent to say to a spawn about it:
+		// with no exposed roots the seed is always empty, so the prompt would tell
+		// it to go read the tree and not to read the tree at all, in the same
+		// breath. Refuse where the configuration is, not in the prompt.
+		if (policy.roots.length === 0) {
+			return describeRefusal(
+				"this vault exposes no folders, so there is nothing to reason over.",
+				"Declare mcp_exposed_roots in vault-manifest.json, or leave it unset to serve the vault's own user_content_roots. `health` reports what is currently exposed.",
+			);
+		}
+
+		const cfg = resolveReasonConfig(ctx.manifest);
+		// The spawn reads the vault with its own tools, so it is told the same
+		// boundary the seed was filtered through — all three of the policy's rules,
+		// since never-expose files and `private:` notes live INSIDE exposed roots.
+		// Without it the one tool that reads most is the one ignoring the config.
+		const scope = { roots: policy.roots, memoryRoot: ctx.memoryRoot, neverExpose: [...policy.neverExpose] };
+
+		// Seed with what the server already has, so the spawn does not spend turns
+		// rediscovering it.
+		const allowed = allowedSearchPaths(ctx.vaultRoot, policy);
+		const seed = await qmdSearch(qmd(), allowed, question, REASON_SEED_HITS);
+
+		// Written before the spawn, and a failure here is a refusal rather than a
+		// raw protocol error: without this file the spawn has no recursion guard,
+		// so it must not run. Its sibling `writeReasoningRecord` returns null on
+		// failure because losing provenance is survivable; losing this is not.
+		let mcpConfigPath: string;
+		try {
+			mcpConfigPath = writeIsolatedMcpConfig(ctx.vaultRoot);
+		} catch (e) {
+			return describeRefusal(
+				"the spawn could not be isolated, so it was not started.",
+				[
+					"Writing the empty MCP config failed, and without it the reasoning session",
+					"could call back into this server. Check that .claude/ is writable.",
+					"",
+					sanitize(e instanceof Error ? e.message : String(e)),
+				].join("\n"),
+			);
+		}
+		// The PERMITTED count, not `total` — a search whose every hit was withheld
+		// has `total > 0` and nothing the spawn can see, and must take the
+		// read-the-vault-yourself branch rather than be handed an empty block.
+		const evidence = visibleHits(seed) > 0 ? seed.text : "";
+		const r = await runReason(
+			resolveClaudeCommand(),
+			ctx.vaultRoot,
+			cfg,
+			reasoningPrompt(question, evidence, scope),
+			mcpConfigPath,
+		);
+
+		audit(REASON_ACTION, reasonAuditDetail(question, cfg, r, scope));
+
+		if (r.error) {
+			// The evidence goes back here too. A spawn that never started is the case
+			// where the caller most needs something to work with, and the search has
+			// already been paid for either way.
+			return describeRefusal(
+				"the reasoning session could not start.",
+				[sanitize(r.error), "", "Set OM_CLAUDE_BIN if your Claude CLI is not on this server's PATH.", "", seed.text].join("\n"),
+			);
+		}
+
+		// A run can end without an answer — the timeout fires, the CLI errors, the
+		// session stops early. Reporting that as an answer is the one outcome worse
+		// than refusing, so it is named.
+		if (!r.ok || !r.answer.trim()) {
+			const why = `it ended early (${r.terminal}) after ${r.turns} turn(s).`;
+			return describeRefusal(
+				`no answer — ${why}`,
+				[
+					"Nothing partial is returned, because a truncated synthesis presented as a",
+					"complete one is worse than no answer. The evidence search already found is",
+					"below; a narrower question is usually the fix.",
+					"",
+					seed.text,
+				].join("\n"),
+			);
+		}
+
+		// The model that ACTUALLY ran is always named. An answer's worth depends on
+		// which model produced it, and a pin can be silently ignored — that is the
+		// surprise this layer already got caught by once, so the reported value is
+		// the CLI's, never the one we asked for.
+		// `"unknown"`, not `""` — `interpretRun` never returns an empty modelUsed on
+		// a successful run, so testing for `""` never fired and every run whose JSON
+		// lacked `modelUsage` was reported as contradicting the pin when nothing
+		// was wrong.
+		const mismatch = cfg.model !== null && r.modelUsed !== "unknown" && !r.modelUsed.includes(cfg.model);
+		const record = writeReasoningRecord(ctx.vaultRoot, now(), question, r);
+
+		return [
+			// Returned as written. `sanitize` guards protocol ERRORS, where a raw
+			// path is noise; an answer is the user's own vault read by the user's own
+			// Claude, and redacting it would mangle legitimate content to defend
+			// against nobody. Egress belongs to the injected contract, not here.
+			r.answer.trim(),
+			"",
+			"---",
+			`Reasoned over the vault in ${r.turns} turn(s), ${(r.wallMs / 1000).toFixed(1)}s. Reported cost $${r.costUsd.toFixed(4)}.`,
+			mismatch
+				? `⚠ Model: ${r.modelUsed} — NOT the pinned ${cfg.model}. Check reason.model in vault-manifest.json.`
+				: cfg.model === null
+					? `Model: ${r.modelUsed} (your CLI default — pin reason.model to change it).`
+					: `Model: ${r.modelUsed} (pinned via reason.model).`,
+			...(record ? [`Full record: ${record}`] : []),
+		].join("\n");
+	}
+
 	function callHealth(): string {
 		const who = caller();
 		// Populate the cache before reporting on it. `recall` tells the user to run
@@ -414,6 +557,10 @@ export function createHandlers(deps: ServerDeps): Handlers {
 			`Parsed store: ${parsed} entr${parsed === 1 ? "y" : "ies"}${memoryIndex.stats.stale ? ` (${memoryIndex.stats.stale} served from an older parse — check permissions)` : ""}`,
 			`Exposed roots: ${policy.roots.join(", ") || "(none)"} [${policy.source}]`,
 			`Search index: ${ctx.qmdIndex ?? "(qmd default)"} · launcher ${ctx.qmdLauncher ? "found" : "NOT FOUND"}`,
+			// `reason` is the one tool that spawns a session, and nothing bounds it.
+			// Reporting the day's usage is what stands in for a limit: the answer to
+			// "where did that go" has to exist somewhere, and this is where.
+			`Reasoning today: ${reasonUsage(ctx.vaultRoot, ctx.manifest, now().toISOString().slice(0, 10), sumAuditField)}`,
 			"",
 			h.warnings.length ? `Warnings:\n${h.warnings.map((w) => `- ${w}`).join("\n")}` : "No warnings.",
 			...(h.notes.length ? ["", `Notes:\n${h.notes.map((n) => `- ${n}`).join("\n")}`] : []),
@@ -457,6 +604,8 @@ export function createHandlers(deps: ServerDeps): Handlers {
 					return session.ok(id, text(callRemember(args)));
 				case "record_work":
 					return session.ok(id, text(callRecordWork(args)));
+				case "reason":
+					return session.ok(id, text(await callReason(args)));
 				case "health":
 					return session.ok(id, text(callHealth()));
 				default:

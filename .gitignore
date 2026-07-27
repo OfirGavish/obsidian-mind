@@ -42,3 +42,13 @@ node_modules/
 # query strings are the user's own thinking.
 .claude/om-mcp-audit.jsonl
 .claude/om-mcp-audit.jsonl.1
+
+# `reason` transcripts. A spawned session's conclusion is INFERRED, so it is
+# kept for provenance and cost review but never committed as vault knowledge —
+# the calling session decides whether any of it is worth a memory.
+.claude/om-reasoning/
+
+# The empty MCP config `reason` spawns against — the recursion guard. Runtime
+# plumbing, created when absent. The glob also covers the `.tmp` sibling it is
+# created through, which a crash between write and claim can leave behind.
+.claude/om-mcp-no-mcp.json*
