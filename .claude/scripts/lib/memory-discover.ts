@@ -22,10 +22,24 @@
 
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import { normalizePath } from "./mcp-caller.ts";
+import { readHead } from "./read-head.ts";
+import { MEMORY_SOURCE } from "./memory-write.ts";
 import { join, relative, sep } from "node:path";
 
 /** Directories never worth walking, in any vault. */
 const SKIP = new Set([".git", ".obsidian", ".shardmind", "node_modules", ".claude", ".codex", ".gemini"]);
+
+/**
+ * Frontmatter that marks a file as agent-written, built from the one constant.
+ *
+ * Escaped because the value belongs to another module: a marker containing `.`
+ * or `|` would quietly widen what counts as agent-written, and this regex is
+ * what decides where the entire store is judged to live.
+ */
+const AGENT_WRITTEN = new RegExp(
+	`^source:\\s*["']?${MEMORY_SOURCE.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}["']?\\s*$`,
+	"m",
+);
 
 /** How deep a memory tree can nest before we stop believing it is one. */
 const MAX_DEPTH = 4;
@@ -108,15 +122,12 @@ export function walkMarkdown(root: string, { maxDepth = MAX_DEPTH }: { maxDepth?
 	return out;
 }
 
-/** Cheap frontmatter probe — reads only the head of a file. */
-export function probeFrontmatter(full: string, bytes = 800): string | null {
-	try {
-		const head = readFileSync(full, "utf8").slice(0, bytes);
-		const m = head.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-		return m ? (m[1] ?? null) : null;
-	} catch {
-		return null;
-	}
+/** Cheap frontmatter probe — reads only the head of a file, not all of it. */
+export function probeFrontmatter(full: string, chars = 800): string | null {
+	const head = readHead(full, chars);
+	if (head === null) return null;
+	const m = head.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+	return m ? (m[1] ?? null) : null;
 }
 
 /**
@@ -137,7 +148,7 @@ export function discoverMemoryRoot(vaultRoot: string, configured = "memories"): 
 	const counts = new Map<string, number>();
 	for (const full of walkMarkdown(vaultRoot)) {
 		const fm = probeFrontmatter(full);
-		if (!fm || !/^source:\s*["']?mcp-capture["']?\s*$/m.test(fm)) continue;
+		if (!fm || !AGENT_WRITTEN.test(fm)) continue;
 		const rel = relative(vaultRoot, full).split(sep);
 		if (rel.length < 2) continue;
 		const top = rel[0];

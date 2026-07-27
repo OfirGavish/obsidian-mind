@@ -16,11 +16,16 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
-import { listMemoryFiles, parseFrontmatter, facetsOf, type Facets } from "./memory-recall.ts";
+import {
+	readMemories,
+	agentMemories,
+	parseFrontmatter,
+	type Facets,
+	type MemoryEntry,
+} from "./memory-recall.ts";
 import { qmdRelKey, vaultRelKey, subQueries, type QmdClient } from "./mcp-qmd-client.ts";
 import type { VisibleFile } from "./mcp-exposure.ts";
-
-const HEAD_BYTES = 1200;
+import { readHead, HEAD_CHARS } from "./read-head.ts";
 
 export interface MemoryDigest extends Facets {
 	readonly rel: string;
@@ -47,12 +52,8 @@ export function resolvableNames(files: readonly VisibleFile[]): Set<string> {
 	const names = new Set<string>();
 	for (const f of files) {
 		names.add(f.label.toLowerCase());
-		let head: string;
-		try {
-			head = readFileSync(f.full, "utf8").slice(0, HEAD_BYTES);
-		} catch {
-			continue; // an unreadable file still contributes its basename
-		}
+		const head = readHead(f.full, HEAD_CHARS);
+		if (head === null) continue; // an unreadable file still contributes its basename
 		const block = head.match(/^aliases:\s*$([\s\S]*?)^(?=\S|---)/m);
 		if (block?.[1]) {
 			for (const line of block[1].split("\n")) {
@@ -72,27 +73,25 @@ export function resolvableNames(files: readonly VisibleFile[]): Set<string> {
 }
 
 /** Load every agent-written memory with its facets, title and body. */
+export function digestsFrom(entries: readonly MemoryEntry[]): MemoryDigest[] {
+	return agentMemories(entries).map((m) => ({
+		rel: m.rel,
+		full: m.full,
+		title: m.title ?? "",
+		body: m.body,
+		...m.facets,
+	}));
+}
+
+/**
+ * The same, read from disk. The IO wrapper.
+ *
+ * No production caller: the server reads through `memory-index`. This is the
+ * on-disk oracle those cache tests assert equality against, so a dead-code sweep
+ * that removes it takes the equivalence guarantee with it.
+ */
 export function loadMemoryDigests(vaultRoot: string, memoryRoot: string): MemoryDigest[] {
-	const out: MemoryDigest[] = [];
-	for (const f of listMemoryFiles(vaultRoot, memoryRoot)) {
-		let md: string;
-		try {
-			md = readFileSync(f.full, "utf8");
-		} catch {
-			continue;
-		}
-		const fm = parseFrontmatter(md);
-		// Only agent-written memories participate. A human note that wandered in
-		// here is left alone rather than silently governed by these rules.
-		if (fm.source !== "mcp-capture") continue;
-		const title = (md.match(/^#\s+(.+)$/m)?.[1] ?? "").trim();
-		const body = md
-			.replace(/^---[\s\S]*?\r?\n---\r?\n/, "")
-			.replace(/^#\s+.*$/m, "")
-			.trim();
-		out.push({ rel: f.rel, full: f.full, title, body, ...facetsOf(fm) });
-	}
-	return out;
+	return digestsFrom(readMemories(vaultRoot, memoryRoot));
 }
 
 /**
@@ -154,8 +153,17 @@ export function findNoteNamed(vaultRoot: string, name: string, memoryRoot: strin
  * the CALLER belongs to is a property of the caller, not of what the vault
  * chooses to expose as readable content. So the search is vault-wide by
  * FILENAME, exactly one frontmatter key is read from the single matching file,
- * no note body is opened, and nothing is returned to the caller except its own
+ * no note body is used, and nothing is returned to the caller except its own
  * platform list.
+ *
+ * A THIRD version was nearly shipped and caught in review. Reading only the
+ * head — as the other frontmatter probes in this file do — looks like the same
+ * optimisation, but it is not: those replaced an equally-sized character slice,
+ * while this replaced a WHOLE-file read. `parseFrontmatter` needs the CLOSING
+ * `---`, so a project note whose frontmatter runs past the head (a long
+ * description, or aliases, both ordinary) parsed to `{}` and the caller got no
+ * platforms — presenting exactly like the two failures above. This reads the
+ * whole file on purpose: it is one file per call, next to a vault walk.
  */
 export function callerPlatforms(vaultRoot: string, caller: string | null, memoryRoot: string): string[] {
 	if (!caller) return [];

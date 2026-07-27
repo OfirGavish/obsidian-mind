@@ -25,7 +25,11 @@
 
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { MEMORY_ROOT } from "./memory-write.ts";
+import { MEMORY_ROOT, MEMORY_SOURCE } from "./memory-write.ts";
+
+// Re-exported so a reader can take the marker from the module it reads with,
+// while the writer that stamps it stays the one place it is defined.
+export { MEMORY_SOURCE };
 
 export interface Facets {
 	readonly scope: string;
@@ -254,24 +258,138 @@ export function listMemoryFiles(vaultRoot: string, root: string = MEMORY_ROOT): 
 
 function safeDirs(dir: string): string[] {
 	try {
-		return readdirSync(dir).filter((n) => {
-			try {
-				return statSync(join(dir, n)).isDirectory();
-			} catch {
-				return false;
-			}
-		});
+		// Dirents answer isDirectory() from the listing itself, so an ordinary
+		// folder costs no stat — and this runs on every read of the store.
+		//
+		// A symlink still needs one. `Dirent` reports a link-to-directory as
+		// isSymbolicLink() and NOT isDirectory(), so filtering on isDirectory()
+		// alone silently skips it: every memory under `memories/2025 -> /archive`
+		// disappears from recall, from the duplicate scan and from `health`, with
+		// no warning anywhere. The stat is paid only for links.
+		return readdirSync(dir, { withFileTypes: true })
+			.filter((e) => {
+				if (e.isDirectory()) return true;
+				if (!e.isSymbolicLink()) return false;
+				try {
+					return statSync(join(dir, e.name)).isDirectory();
+				} catch {
+					return false; // broken link
+				}
+			})
+			.map((e) => e.name);
 	} catch {
 		return [];
 	}
 }
 
 /**
- * Load every memory visible to this caller, ranked.
+ * Parse one file from the store.
+ *
+ * The single parse implementation, so the cache in `memory-index.ts` and a cold
+ * read cannot drift into producing different entries from the same bytes.
+ */
+export function parseMemory(rel: string, full: string, md: string): MemoryEntry {
+	const heading = md.match(/^#\s+(.+)$/m);
+	return {
+		rel,
+		full,
+		facets: facetsOf(parseFrontmatter(md)),
+		title: heading ? (heading[1] ?? "").trim() : null,
+		// The body travels with the entry. A caller past the visibility rule has
+		// earned the content, and the memory root is not in the resource-exposure
+		// list anyway — so a pointer-only result hands back a path it cannot open.
+		body: md
+			.replace(/^---[\s\S]*?\r?\n---\r?\n/, "")
+			.replace(/^#\s+.*$/m, "")
+			.trim(),
+	};
+}
+
+/**
+ * Read and parse one file from the store, or null if it cannot be read.
+ *
+ * Shared by the cold path below and by the cache in `memory-index.ts`, so the
+ * two cannot drift on what counts as unreadable.
+ */
+export function readMemoryFile(file: { rel: string; full: string }): MemoryEntry | null {
+	try {
+		return parseMemory(file.rel, file.full, readFileSync(file.full, "utf8"));
+	} catch {
+		return null; // an unreadable file must not take down retrieval
+	}
+}
+
+/** Read and parse the whole store. The uncached path. */
+export function readMemories(vaultRoot: string, root: string = MEMORY_ROOT): MemoryEntry[] {
+	const out: MemoryEntry[] = [];
+	for (const file of listMemoryFiles(vaultRoot, root)) {
+		const entry = readMemoryFile(file);
+		if (entry) out.push(entry);
+	}
+	return out;
+}
+
+/**
+ * The subset of a store that is agent-written.
+ *
+ * A human note that wandered into the memory folder is left alone rather than
+ * silently governed by these rules. One predicate, so "what counts as a memory"
+ * is answered in a single place.
+ */
+export function agentMemories(entries: readonly MemoryEntry[]): MemoryEntry[] {
+	return entries.filter((m) => m.facets.source === MEMORY_SOURCE);
+}
+
+/**
+ * Apply the visibility rule and rank what survives. PURE — no filesystem.
+ *
+ * This is the whole of recall's decision-making. `recall` below is the thin IO
+ * wrapper that feeds it from disk; the server feeds it from its parse cache.
+ *
+ * Taking a pre-parsed list as an OPTIONAL argument alongside `vaultRoot` and
+ * `root` was designed and rejected: it left both of those dead on every
+ * production call, and made it possible to hand in entries read from one root
+ * while naming another, with nothing able to notice.
  *
  * `explain` attaches the visibility reason to each entry AND returns the
  * withheld ones with theirs — used to prove a memory was excluded deliberately
  * rather than missed by accident.
+ */
+export function recallFrom(
+	entries: readonly MemoryEntry[],
+	caller: Caller,
+	opts?: { explain?: false },
+): MemoryEntry[];
+export function recallFrom(
+	entries: readonly MemoryEntry[],
+	caller: Caller,
+	opts: { explain: true },
+): { visible: MemoryEntry[]; withheld: MemoryEntry[] };
+export function recallFrom(
+	entries: readonly MemoryEntry[],
+	caller: Caller,
+	{ explain = false }: { explain?: boolean } = {},
+): MemoryEntry[] | { visible: MemoryEntry[]; withheld: MemoryEntry[] } {
+	const visible: MemoryEntry[] = [];
+	const withheld: MemoryEntry[] = [];
+	for (const entry of agentMemories(entries)) {
+		const facets = entry.facets;
+		if (isVisibleTo(facets, caller)) {
+			visible.push(explain ? { ...entry, why: visibilityReason(facets, caller) } : entry);
+		} else if (explain) {
+			withheld.push({ ...entry, why: visibilityReason(facets, caller) });
+		}
+	}
+	const ranked = rankMemories(visible, caller);
+	return explain ? { visible: ranked, withheld } : ranked;
+}
+
+/**
+ * Load every memory visible to this caller, ranked. The IO wrapper.
+ *
+ * No production caller: the server reads through `memory-index`. This is the
+ * on-disk oracle those cache tests assert equality against, so a dead-code sweep
+ * that removes it takes the equivalence guarantee with it.
  */
 export function recall(
 	vaultRoot: string,
@@ -288,43 +406,6 @@ export function recall(
 	caller: Caller,
 	{ root = MEMORY_ROOT, explain = false }: { root?: string; explain?: boolean } = {},
 ): MemoryEntry[] | { visible: MemoryEntry[]; withheld: MemoryEntry[] } {
-	const visible: MemoryEntry[] = [];
-	const withheld: MemoryEntry[] = [];
-	for (const file of listMemoryFiles(vaultRoot, root)) {
-		let md: string;
-		try {
-			md = readFileSync(file.full, "utf8");
-		} catch {
-			continue; // an unreadable file must not take down retrieval
-		}
-		const fm = parseFrontmatter(md);
-		// Only agent-written memories participate; a human note that wandered in
-		// here is left alone rather than silently governed by these rules.
-		if (fm.source !== "mcp-capture") continue;
-		const facets = facetsOf(fm);
-		// The body travels with the entry. A caller past the visibility rule has
-		// earned the content, and the memory root is not in the resource-exposure
-		// list anyway — so a pointer-only result hands back a path it cannot open.
-		const entry: MemoryEntry = { ...file, facets, title: titleOf(md), body: bodyOf(md) };
-		if (isVisibleTo(facets, caller)) {
-			visible.push(explain ? { ...entry, why: visibilityReason(facets, caller) } : entry);
-		} else if (explain) {
-			withheld.push({ ...entry, why: visibilityReason(facets, caller) });
-		}
-	}
-	const ranked = rankMemories(visible, caller);
-	return explain ? { visible: ranked, withheld } : ranked;
-}
-
-function titleOf(md: string): string | null {
-	const m = md.match(/^#\s+(.+)$/m);
-	return m ? (m[1] ?? "").trim() : null;
-}
-
-/** The note minus its frontmatter and H1 — the part worth carrying. */
-function bodyOf(md: string): string {
-	return md
-		.replace(/^---[\s\S]*?\r?\n---\r?\n/, "")
-		.replace(/^#\s+.*$/m, "")
-		.trim();
+	const entries = readMemories(vaultRoot, root);
+	return explain ? recallFrom(entries, caller, { explain: true }) : recallFrom(entries, caller);
 }
