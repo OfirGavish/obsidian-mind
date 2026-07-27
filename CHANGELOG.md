@@ -11,6 +11,19 @@
 
 
 
+
+## v8.1.0 — 2026-07-27
+
+### Added
+- (reason) answer judgement questions by reading the vault in a second session
+
+### Changed
+- (memory) cache the parse, and stop reading whole files to see their head
+
+### Fixed
+- keep the engine's own tree out of the vault listing
+- stop the meetings-inbox README flagging forever
+
 ## v8.0.0 — 2026-07-26
 
 ### Added

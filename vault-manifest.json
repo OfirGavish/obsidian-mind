@@ -1,7 +1,7 @@
 {
   "template": "obsidian-mind",
-  "version": "8.0.0",
-  "released": "2026-07-26",
+  "version": "8.1.0",
+  "released": "2026-07-27",
   "qmd_index": "",
   "qmd_min_version": "2.0.0",
   "open_loop_dirs": [
