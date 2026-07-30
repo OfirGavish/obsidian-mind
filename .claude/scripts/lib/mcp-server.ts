@@ -12,7 +12,7 @@
  * than an error.
  */
 
-import { readFileSync } from "node:fs";
+import { readFileSync, realpathSync } from "node:fs";
 import { spawn, spawnSync } from "node:child_process";
 
 import type { VaultContext } from "./mcp-context.ts";
@@ -24,6 +24,7 @@ import {
 	allowedSearchPaths,
 	listResources,
 	resolveResourceUri,
+	vaultRelKeyRaw,
 } from "./mcp-exposure.ts";
 import { expandNote } from "./mcp-graph.ts";
 import { qmdSearch, type QmdClient } from "./mcp-qmd-client.ts";
@@ -137,6 +138,22 @@ export function createHandlers(deps: ServerDeps): Handlers {
 	const runReason = deps.runReason ?? runReasoning;
 	// One cache per server, living exactly as long as the process that owns it.
 	const memoryIndex = createMemoryIndex(ctx.vaultRoot, ctx.memoryRoot);
+
+	// The vault root with symlinks resolved, computed once.
+	//
+	// Needed because `resolveResourceUri` returns a REALPATH, and on macOS the
+	// temp and home trees are reached through symlinks (`/var` is `/private/var`).
+	// Stripping a realpath prefix with the unresolved root silently fails to match,
+	// and `vaultRelKeyRaw` then returns its input unchanged — which is how an
+	// absolute filesystem path ended up inside a `vault://note/...` URI. Caught by
+	// macOS CI; invisible on Linux and Windows.
+	const vaultReal = (() => {
+		try {
+			return realpathSync(ctx.vaultRoot);
+		} catch {
+			return ctx.vaultRoot;
+		}
+	})();
 
 	/**
 	 * The store, parsed, for READ paths. Lists and stats every file on every
@@ -621,15 +638,34 @@ export function createHandlers(deps: ServerDeps): Handlers {
 		"resources/read": async (id, params) => {
 			await session.identityReady();
 			const uri = String((params as { uri?: unknown } | undefined)?.uri ?? "");
-			const full = resolveResourceUri(ctx.vaultRoot, policy, uri);
+
+			// The collection name is passed so a URI read straight out of a `search`
+			// result resolves. See resolveResourceUri for what qmd does to paths.
+			const full = resolveResourceUri(ctx.vaultRoot, policy, uri, ctx.qmdIndex);
 			if (!full) {
 				// Not-found rather than forbidden: to this server, a URI outside
 				// the served set is simply not a resource it has.
 				audit("resource_denied", { uri });
 				return session.fail(id, `no such resource: ${uri}`, -32602);
 			}
-			audit("resource_read", { uri });
-			session.ok(id, { contents: [{ uri, mimeType: "text/markdown", text: readFileSync(full, "utf8") }] });
+
+			// The canonical URI goes back, not the requested one, so a caller that
+			// arrived via a prefixed or slugified path learns the form that works.
+			// vaultRelKeyRaw, not vaultRelKey: the latter normalises case for
+			// comparison, and a URI has to round-trip to a real file. Against
+			// `vaultReal`, because `full` is a realpath.
+			const rel = vaultRelKeyRaw(vaultReal, full);
+			// `vaultRelKeyRaw` returns its input unchanged when the prefix does not
+			// match, so anything still absolute means we have no clean relative path.
+			// Echo the request rather than publish a filesystem path.
+			const served =
+				rel === full || rel.startsWith("/") || /^[A-Za-z]:/.test(rel)
+					? uri
+					: `vault://note/${rel.split("/").map(encodeURIComponent).join("/")}`;
+			audit("resource_read", served === uri ? { uri } : { uri: served, from: uri });
+			session.ok(id, {
+				contents: [{ uri: served, mimeType: "text/markdown", text: readFileSync(full, "utf8") }],
+			});
 		},
 
 		"prompts/list": (id) => session.ok(id, { prompts: PROMPTS }),
