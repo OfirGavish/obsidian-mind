@@ -13,6 +13,19 @@
 
 
 
+
+## v8.2.0 — 2026-07-30
+
+### Added
+- warn when a memory claims general reach without saying why
+
+### Changed
+- anchor vault consultation to an artifact, not to a moment
+
+### Fixed
+- surface the cross-repo memory inbox in hygiene
+- refuse a record_work capture whose arguments did not serialize
+
 ## v8.1.1 — 2026-07-30
 
 ### Changed
