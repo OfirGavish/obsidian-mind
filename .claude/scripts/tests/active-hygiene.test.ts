@@ -25,6 +25,7 @@ import {
 	formatMonolithHint,
 	isMonolithExempt,
 	newNoteClusterCandidate,
+	parseMemoryRoot,
 	parseOpenLoopConfig,
 	scanActiveHygiene,
 	walkMarkdown,
@@ -247,6 +248,118 @@ describe("scanActiveHygiene — detectors", () => {
 		}
 	});
 
+	test("the cross-repo memory inbox is counted, nested under year and month", () => {
+		const solo = mkdtempSync(join(tmpdir(), "active-hygiene-memories-"));
+		try {
+			mkdirSync(join(solo, "memories/2026/07"), { recursive: true });
+			const a = join(solo, "memories/2026/07/a lesson.md");
+			writeFileSync(a, "captured");
+			const t = new Date(NOW - 3 * DAY_MS);
+			utimesSync(a, t, t);
+
+			// The defect this closes: every other scan here is flat, and the server
+			// writes two levels down, so a flat walk reports an empty inbox forever.
+			const found = scanActiveHygiene(solo, NOW, DEFAULTS).memoryInbox;
+			assert.ok(found !== null);
+			assert.equal(found!.count, 1);
+			assert.equal(found!.oldestDays, 3);
+		} finally {
+			rmSync(solo, { recursive: true, force: true });
+		}
+	});
+
+	test("a memory capture counts the moment it lands — no age threshold", () => {
+		const solo = mkdtempSync(join(tmpdir(), "active-hygiene-memories-fresh-"));
+		try {
+			mkdirSync(join(solo, "memories/2026/07"), { recursive: true });
+			writeFileSync(join(solo, "memories/2026/07/brand new.md"), "captured");
+			// Undrained because nobody has judged it, which is true immediately.
+			assert.equal(scanActiveHygiene(solo, NOW, DEFAULTS).memoryInbox?.count, 1);
+		} finally {
+			rmSync(solo, { recursive: true, force: true });
+		}
+	});
+
+	test("a shipped README in the memory tree is not a capture", () => {
+		const solo = mkdtempSync(join(tmpdir(), "active-hygiene-memories-readme-"));
+		try {
+			mkdirSync(join(solo, "memories/2026/07"), { recursive: true });
+			writeFileSync(join(solo, "memories/2026/07/README.md"), "how this folder works");
+			// Same permanently-unclearable trap the meetings scaffold already fixed.
+			assert.equal(scanActiveHygiene(solo, NOW, DEFAULTS).memoryInbox, null);
+		} finally {
+			rmSync(solo, { recursive: true, force: true });
+		}
+	});
+
+	test("a declared memory_root is honoured, and the default is not hard-coded", () => {
+		const solo = mkdtempSync(join(tmpdir(), "active-hygiene-memories-root-"));
+		try {
+			mkdirSync(join(solo, "elsewhere/2026/07"), { recursive: true });
+			writeFileSync(join(solo, "elsewhere/2026/07/a lesson.md"), "captured");
+			assert.equal(scanActiveHygiene(solo, NOW, DEFAULTS).memoryInbox, null);
+			assert.equal(
+				scanActiveHygiene(solo, NOW, DEFAULTS, [], parseMemoryRoot('{"memory_root":"elsewhere"}'))
+					.memoryInbox?.count,
+				1,
+			);
+		} finally {
+			rmSync(solo, { recursive: true, force: true });
+		}
+	});
+
+	// The flag has to be able to reach zero. Promotion is additive, so the entry
+	// stays; without a marker the count could only ever grow, which is the
+	// permanently-unclearable failure #155 already fixed once.
+	test("a promoted capture stops counting, so the flag can clear", () => {
+		const solo = mkdtempSync(join(tmpdir(), "active-hygiene-memories-promoted-"));
+		try {
+			mkdirSync(join(solo, "memories/2026/07"), { recursive: true });
+			const rel = "memories/2026/07/a lesson.md";
+			writeFileSync(join(solo, rel), "---\nscope: general\n---\n\n# a lesson\n");
+			assert.equal(scanActiveHygiene(solo, NOW, DEFAULTS).memoryInbox?.count, 1);
+
+			writeFileSync(
+				join(solo, rel),
+				'---\nscope: general\npromoted: "brain/Gotchas"\n---\n\n# a lesson\n',
+			);
+			assert.equal(scanActiveHygiene(solo, NOW, DEFAULTS).memoryInbox, null);
+		} finally {
+			rmSync(solo, { recursive: true, force: true });
+		}
+	});
+
+	test("an empty or misplaced promoted marker does not silence a capture", () => {
+		const solo = mkdtempSync(join(tmpdir(), "active-hygiene-memories-badmark-"));
+		try {
+			mkdirSync(join(solo, "memories/2026/07"), { recursive: true });
+			// A bare key with no value is not a promotion record and must not hide
+			// a capture from review.
+			writeFileSync(join(solo, "memories/2026/07/x.md"), "---\npromoted:\n---\n\n# x\n");
+			assert.equal(scanActiveHygiene(solo, NOW, DEFAULTS).memoryInbox?.count, 1);
+			// Nor may the word appearing in the BODY rather than the frontmatter.
+			writeFileSync(join(solo, "memories/2026/07/y.md"), "# y\n\npromoted: brain/Thing\n");
+			assert.equal(scanActiveHygiene(solo, NOW, DEFAULTS).memoryInbox?.count, 2);
+		} finally {
+			rmSync(solo, { recursive: true, force: true });
+		}
+	});
+
+	test("the memory-inbox line says COPY, never delete", () => {
+		const lines = formatActiveHygiene({
+			completedInActive: [],
+			ungroupedClusters: [],
+			oversizedNotes: [],
+			openLoops: [],
+			inboxPressure: null,
+			memoryInbox: { count: 4, oldestDays: 2 },
+		});
+		const text = lines.join("\n");
+		assert.match(text, /COPYING it/);
+		assert.match(text, /promoted: <note>/);
+		assert.doesNotMatch(text, /om-intake/);
+	});
+
 	test("missing folders produce an empty report, not errors", () => {
 		const empty = mkdtempSync(join(tmpdir(), "active-hygiene-empty-"));
 		try {
@@ -317,6 +430,7 @@ describe("formatActiveHygiene", () => {
 			oversizedNotes: [{ path: "work/Fat.md", sizeKb: 40 }],
 			openLoops: [{ path: "work/1-1/A 2026-01-01.md", ageDays: 20, openItems: 2 }],
 			inboxPressure: null,
+			memoryInbox: null,
 		});
 		const text = lines.join("\n");
 		assert.match(text, /marked done but still in active\//);
