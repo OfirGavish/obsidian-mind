@@ -12,6 +12,15 @@
 
 
 
+
+## v8.1.1 — 2026-07-30
+
+### Changed
+- ship the repo-side snippet, and make user scope the default install
+
+### Fixed
+- resolve resource URIs that came from a search result
+
 ## v8.1.0 — 2026-07-27
 
 ### Added
