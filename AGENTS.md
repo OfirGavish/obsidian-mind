@@ -18,14 +18,19 @@ The hook scripts in `.claude/scripts/` are agent-agnostic TypeScript and shell, 
 | VS Code Copilot | `.github/copilot-instructions.md` | Instructions only — no hooks API |
 | GitHub App / Copilot cloud agent | `.github/copilot-instructions.md` | Instructions only — no hooks API |
 | GitHub Copilot CLI | `.github/copilot-instructions.md` | Shared instructions |
+| Copilot Cowork | `.cowork/settings.json` | Shared hook scripts |
+| Microsoft Scout | `.scout/settings.json` | Shared hook scripts |
+| Microsoft Copilot Studio | `.copilot-studio/AGENT.md` | Instructions only — no hooks API |
 
-| Script | Purpose | Claude event | Codex event | Gemini event | OpenClaw event | Hermes event |
-|--------|---------|--------------|-------------|--------------|----------------|--------------|
-| `session-start.ts` | Inject vault context at startup | SessionStart | SessionStart | SessionStart | SessionStart | SessionStart |
-| `classify-message.ts` | Classify messages, inject routing hints | UserPromptSubmit | UserPromptSubmit | BeforeAgent | BeforeAgent | UserPromptSubmit |
-| `validate-write.ts` | Validate frontmatter and wikilinks | PostToolUse | PostToolUse | AfterTool | AfterTool | PostToolUse |
-| `pre-compact.ts` | Back up transcript before compaction | PreCompact | — | PreCompress | PreCompress | PreCompact |
-| `stop-checklist.ts` | End-of-session hygiene checklist | — | Stop | SessionEnd | SessionEnd | Stop |
+| Script | Purpose | Claude event | Codex event | Gemini event | OpenClaw event | Hermes event | Cowork event | Scout event |
+|--------|---------|--------------|-------------|--------------|----------------|--------------|--------------|-------------|
+| `session-start.ts` | Inject vault context at startup | SessionStart | SessionStart | SessionStart | SessionStart | SessionStart | SessionStart | SessionStart |
+| `classify-message.ts` | Classify messages, inject routing hints | UserPromptSubmit | UserPromptSubmit | BeforeAgent | BeforeAgent | UserPromptSubmit | UserPromptSubmit ¹ | UserPromptSubmit ¹ |
+| `validate-write.ts` | Validate frontmatter and wikilinks | PostToolUse | PostToolUse | AfterTool | AfterTool | PostToolUse | PostToolUse ¹ | PostToolUse ¹ |
+| `pre-compact.ts` | Back up transcript before compaction | PreCompact | — | PreCompress | PreCompress | PreCompact | PreCompact ¹ | PreCompact ¹ |
+| `stop-checklist.ts` | End-of-session hygiene checklist | — | Stop | SessionEnd | SessionEnd | Stop | Stop ¹ | Stop ¹ |
+
+¹ **Provisional.** Copilot Cowork and Microsoft Scout do not have fully published hook vocabularies at the time of writing. These names are borrowed from Claude Code's vocabulary as closest equivalents. If the agents use different canonical event names, update `settings.json` and the relevant `.md` files accordingly.
 
 ## Commands
 
@@ -81,6 +86,12 @@ project_doc_fallback_filenames = ["CLAUDE.md"]
 ```
 node --disable-warning=ExperimentalWarning --experimental-strip-types .claude/scripts/<script>.ts
 ```
+
+**Copilot Cowork**: Hooks are configured in `.cowork/settings.json` using the shared scripts. Read `.cowork/COWORK.md` for the hook table and vault conventions. Read `CLAUDE.md` for full details. Note: Copilot Cowork supports multiple parallel delegated sessions — always re-read a note before editing it, use `git mv` instead of delete, and never write to another session's in-progress `work/active/` note without coordination.
+
+**Microsoft Scout**: Hooks are configured in `.scout/settings.json` using the shared scripts. Read `.scout/SCOUT.md` for the hook table and guidance on promoting research findings to `brain/`. Read `CLAUDE.md` for full details. Note: Scout's session state and browsed content are ephemeral — any durable finding must be written into a `brain/` topic note with at least one wikilink to context before the session ends.
+
+**Microsoft Copilot Studio**: Read `.copilot-studio/AGENT.md` — the full vault operating guide for Copilot Studio agents. For knowledge source configuration, read `.copilot-studio/knowledge-config.md`. Preferred integration: register the `om` MCP server (`.claude/scripts/om-mcp.mjs`) rather than ingesting static file snapshots. There is no filesystem hooks API.
 
 **Other agents** (Cursor, Windsurf): Read `AGENTS.md` for vault conventions. Hook support varies by agent.
 
