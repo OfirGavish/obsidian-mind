@@ -1,0 +1,201 @@
+# Agent Setup Guide
+
+A longer-form companion to the [README's "Tell Your Agent To Set It Up" section](../README.md#-tell-your-agent-to-set-it-up). Covers the quick comparison table, full copy-paste setup prompts, and troubleshooting.
+
+---
+
+## Quick Comparison
+
+| Agent | Config file | Hook support | Native entry point |
+|-------|-------------|--------------|-------------------|
+| Claude Code | `.claude/settings.json` | Full (5 hooks) | `CLAUDE.md` |
+| Codex CLI | `.codex/hooks.json` | Shared hook scripts | `AGENTS.md` (read natively) |
+| Gemini CLI | `.gemini/settings.json` | Shared hook scripts | `GEMINI.md` (read natively) |
+| OpenClaw | `.openclaw/settings.json` | Shared hook scripts | `.openclaw/OPENCLAW.md` |
+| Hermes | `.hermes/settings.json` | Shared hook scripts | `.hermes/HERMES.md` |
+| Copilot Cowork | `.cowork/settings.json` | Shared hook scripts (provisional event names) | `.cowork/COWORK.md` |
+| Microsoft Scout | `.scout/settings.json` | Shared hook scripts (provisional event names) | `.scout/SCOUT.md` |
+| VS Code Copilot | `.github/copilot-instructions.md` | Instructions only (manual scripts via VS Code Tasks) | `.github/copilot-instructions.md` |
+| GitHub App / Copilot cloud agent | `.github/copilot-instructions.md` | Instructions only | `.github/copilot-instructions.md` |
+| GitHub Copilot CLI | `.github/copilot-instructions.md` | Instructions only | `.github/copilot-instructions.md` |
+| Microsoft Copilot Studio | `.copilot-studio/AGENT.md` | Instructions only | `.copilot-studio/AGENT.md` |
+
+All hook-capable agents share the same five scripts in `.claude/scripts/`:
+
+| Script | Purpose |
+|--------|---------|
+| `session-start.ts` | Inject vault context at session start |
+| `classify-message.ts` | Classify messages and inject routing hints |
+| `validate-write.ts` | Validate frontmatter and wikilinks after writing `.md` files |
+| `pre-compact.ts` | Back up session transcript before context compaction |
+| `stop-checklist.ts` | End-of-session hygiene checklist |
+
+---
+
+## Setup Prompts
+
+### Generic (any agent)
+
+Paste this into a fresh session in the vault directory. Works regardless of which agent you are using.
+
+```
+Read AGENTS.md and CLAUDE.md in this vault. Identify which agent you are, find your config file (AGENTS.md lists them all), verify that your hooks are wired to the five scripts in .claude/scripts/, and report what is missing or misconfigured. If a config file for your agent already exists, verify it. If not, explain what would need to be created and what the correct event names are for your agent's hook vocabulary.
+```
+
+### Hook-capable agents (Codex, Gemini, OpenClaw, Hermes, Cowork, Scout)
+
+```
+Read AGENTS.md, CLAUDE.md, and your agent's config file (e.g. .codex/hooks.json, .gemini/settings.json, .openclaw/settings.json, .hermes/settings.json, .cowork/settings.json, or .scout/settings.json). Set the environment variable <AGENT>_PROJECT_DIR (e.g. HERMES_PROJECT_DIR, COWORK_PROJECT_DIR) to the absolute path of this vault. Verify that all five hook scripts in .claude/scripts/ resolve from that path: session-start.ts, classify-message.ts, validate-write.ts, pre-compact.ts, stop-checklist.ts. Report any that are missing or have incorrect paths. Note: for Copilot Cowork and Microsoft Scout, hook event names are provisional — check .cowork/COWORK.md or .scout/SCOUT.md for current names and update settings.json if your agent's vocabulary differs.
+```
+
+### GitHub Copilot family (VS Code Copilot, GitHub App / Copilot cloud agent, GitHub Copilot CLI)
+
+```
+Read .github/copilot-instructions.md — this is your vault operating guide. For VS Code Copilot, also confirm that .github/instructions/vault.instructions.md is present and will be applied to .md files (it has applyTo: "**/*.md" in its frontmatter). Since Copilot has no hooks API, the hook scripts in .claude/scripts/ must be run manually or wired as VS Code Tasks. To run manually:
+  node --disable-warning=ExperimentalWarning --experimental-strip-types .claude/scripts/session-start.ts
+  node --disable-warning=ExperimentalWarning --experimental-strip-types .claude/scripts/stop-checklist.ts
+Report whether the instructions files are present and summarise the vault conventions you found.
+```
+
+#### Wiring as VS Code Tasks
+
+Add this to `.vscode/tasks.json` in the vault root to run hooks from the VS Code command palette:
+
+```json
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "om: Session Start",
+      "type": "shell",
+      "command": "node --disable-warning=ExperimentalWarning --experimental-strip-types .claude/scripts/session-start.ts",
+      "presentation": { "reveal": "always" }
+    },
+    {
+      "label": "om: Stop Checklist",
+      "type": "shell",
+      "command": "node --disable-warning=ExperimentalWarning --experimental-strip-types .claude/scripts/stop-checklist.ts",
+      "presentation": { "reveal": "always" }
+    },
+    {
+      "label": "om: Validate Write",
+      "type": "shell",
+      "command": "node --disable-warning=ExperimentalWarning --experimental-strip-types .claude/scripts/validate-write.ts",
+      "presentation": { "reveal": "always" }
+    }
+  ]
+}
+```
+
+### Copilot Studio
+
+```
+Read .copilot-studio/AGENT.md and .copilot-studio/knowledge-config.md. For vault access, register the om MCP server (.claude/scripts/om-mcp.mjs) rather than ingesting static file snapshots — this gives live search and graph traversal. If direct file ingestion is required, index brain/, org/, work/active/, work/archive/, perf/competencies/, and reference/. Exclude .obsidian/, .claude/, and memories/YYYY/MM/. Report the MCP wiring status and any missing configuration.
+```
+
+### Bring this vault to another repo
+
+```
+I want to reach my Obsidian Mind vault from this repository. The vault is at [/absolute/path/to/vault]. Please: (1) register the om MCP server by running: claude mcp add --scope user om node "/absolute/path/to/vault/.claude/scripts/om-mcp.mjs" (2) add a consultation section to this project's CLAUDE.md (or equivalent agent instructions file) following the template in the README's "🧠 Reach Your Vault From Any Repo" section. Both steps are required — the server wired without the repo-side instruction makes zero vault calls.
+```
+
+Cross-reference: see the README's [🧠 Reach Your Vault From Any Repo](../README.md#-reach-your-vault-from-any-repo) section for the full consultation template and the rationale behind the two-step requirement.
+
+---
+
+## Troubleshooting
+
+### Hooks not firing
+
+1. **Check Node version:** run `node --version`. You need ≥ 22.6.0 for `--experimental-strip-types` to work.
+2. **Check the config file:** open your agent's config file (e.g. `.openclaw/settings.json`) and confirm the script paths resolve. The path variable (`${HERMES_PROJECT_DIR:-.}`, etc.) must point to the vault root.
+3. **Run a script manually** to see raw output:
+   ```bash
+   node --disable-warning=ExperimentalWarning --experimental-strip-types .claude/scripts/session-start.ts
+   ```
+4. **Check the event name:** your agent's config must use the correct lifecycle event names. See the per-agent docs below.
+
+### Node version requirement
+
+Hook scripts use `--experimental-strip-types`, available in Node 22.6+ (Aug 2024). It became the default in Node 23.6+ and remains stable in 24 LTS.
+
+To check: `node --version`. To install: [nodejs.org](https://nodejs.org) (use the current LTS).
+
+If you cannot upgrade Node, the scripts can be compiled to plain JavaScript first:
+```bash
+npx tsx .claude/scripts/session-start.ts   # one-off via npx
+```
+
+### Environment variable not set
+
+Each hook-capable agent uses a path variable to find the vault root:
+
+| Agent | Variable |
+|-------|---------|
+| Codex CLI | `CODEX_PROJECT_DIR` |
+| Gemini CLI | `GEMINI_PROJECT_DIR` |
+| OpenClaw | `OPENCLAW_PROJECT_DIR` |
+| Hermes | `HERMES_PROJECT_DIR` |
+| Copilot Cowork | `COWORK_PROJECT_DIR` |
+| Microsoft Scout | `SCOUT_PROJECT_DIR` |
+
+All default to `.` (current working directory) if unset. If you run your agent from outside the vault directory, set the variable:
+
+```bash
+export HERMES_PROJECT_DIR="/absolute/path/to/vault"
+```
+
+Or set it permanently in your shell's rc file.
+
+### Provisional event names (Copilot Cowork and Microsoft Scout)
+
+The hook event names in `.cowork/settings.json` and `.scout/settings.json` are **provisional** — borrowed from Claude Code's hook vocabulary because Copilot Cowork and Microsoft Scout had not published their full hook vocabularies at the time these configs were written.
+
+If your version of those agents uses different event names:
+1. Open `.cowork/settings.json` or `.scout/settings.json`
+2. Replace the event names (e.g. `SessionStart`, `UserPromptSubmit`, `PostToolUse`, `PreCompact`, `Stop`) with the canonical names from your agent's documentation
+3. The hook scripts themselves (`session-start.ts`, etc.) are event-agnostic and require no changes
+
+Once the agents publish their vocabularies, this file will be updated. Check `.cowork/COWORK.md` and `.scout/SCOUT.md` for any updates.
+
+### Copilot Studio: MCP vs. static file ingestion
+
+Copilot Studio can ingest the vault either via the `om` MCP server (live, graph-aware) or as static file snapshots. **MCP is strongly preferred** — it gives live search, graph traversal, and cross-repo memory scoping. Static ingestion gets stale as the vault grows.
+
+If you must use static ingestion, the recommended index roots are:
+
+```
+brain/
+org/
+work/active/
+work/archive/
+perf/competencies/
+reference/
+```
+
+**Exclude**: `.obsidian/`, `.claude/`, `memories/YYYY/MM/` (cross-repo memories carry their own scope; indexing them directly bypasses it).
+
+See `.copilot-studio/knowledge-config.md` for the full ingestion configuration.
+
+---
+
+## Per-Agent Docs
+
+| Agent | Config file | Agent-specific doc |
+|-------|-------------|-------------------|
+| Claude Code | `.claude/settings.json` | `CLAUDE.md` (full operating manual) |
+| Codex CLI | `.codex/hooks.json` | `AGENTS.md` |
+| Gemini CLI | `.gemini/settings.json` | `GEMINI.md` |
+| OpenClaw | `.openclaw/settings.json` | `.openclaw/OPENCLAW.md` |
+| Hermes | `.hermes/settings.json` | `.hermes/HERMES.md` |
+| Copilot Cowork | `.cowork/settings.json` | `.cowork/COWORK.md` |
+| Microsoft Scout | `.scout/settings.json` | `.scout/SCOUT.md` |
+| GitHub Copilot family | `.github/copilot-instructions.md` | `.github/copilot-instructions.md` |
+| Copilot Studio | `.copilot-studio/AGENT.md` | `.copilot-studio/AGENT.md`, `.copilot-studio/knowledge-config.md` |
+
+**External docs:**
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
+- [Codex CLI](https://github.com/openai/codex)
+- [Gemini CLI](https://github.com/google-gemini/gemini-cli)
+- [GitHub Copilot](https://docs.github.com/en/copilot)
+- [Copilot Studio](https://learn.microsoft.com/en-us/microsoft-copilot-studio/)

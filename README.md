@@ -9,6 +9,12 @@
 [![Claude Code](https://img.shields.io/badge/claude%20code-full%20support-D97706)](https://docs.anthropic.com/en/docs/claude-code)
 [![Codex CLI](https://img.shields.io/badge/codex%20cli-hooks%20%2B%20commands-10A37F)](https://github.com/openai/codex)
 [![Gemini CLI](https://img.shields.io/badge/gemini%20cli-hooks%20%2B%20commands-4285F4)](https://github.com/google-gemini/gemini-cli)
+[![OpenClaw](https://img.shields.io/badge/openclaw-hooks%20%2B%20commands-6B46C1)](.openclaw/settings.json)
+[![Hermes](https://img.shields.io/badge/hermes-hooks%20%2B%20commands-C0392B)](.hermes/settings.json)
+[![Copilot Cowork](https://img.shields.io/badge/copilot%20cowork-hooks%20%2B%20commands-0078D4)](.cowork/settings.json)
+[![Microsoft Scout](https://img.shields.io/badge/microsoft%20scout-hooks%20%2B%20commands-00B4D8)](.scout/settings.json)
+[![GitHub Copilot](https://img.shields.io/badge/github%20copilot-instructions-24292E)](https://github.com/features/copilot)
+[![Copilot Studio](https://img.shields.io/badge/copilot%20studio-instructions-8764B8)](https://www.microsoft.com/en-us/microsoft-copilot/copilot-studio)
 [![Obsidian](https://img.shields.io/badge/obsidian-1.12%2B-7C3AED)](https://obsidian.md)
 [![Obsidian CLI](https://img.shields.io/badge/obsidian--cli-integrated-E6E6E6)](https://github.com/kepano/obsidian-cli)
 [![Obsidian Skills](https://img.shields.io/badge/obsidian--skills-integrated-8B5CF6)](https://github.com/kepano/obsidian-skills)
@@ -16,7 +22,7 @@
 [![Node](https://img.shields.io/badge/node-22%2B-339933)](https://nodejs.org)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-> **An Obsidian vault that gives AI coding agents persistent memory.** Built for Claude Code, with working hooks for Codex CLI and Gemini CLI. Start a session, talk about your day, and the agent handles the rest — notes, links, indexes, performance tracking. Every conversation builds on the last.
+> **An Obsidian vault that gives AI coding agents persistent memory.** Full support for Claude Code; hooks + commands for Codex CLI, Gemini CLI, OpenClaw, Hermes, Copilot Cowork, and Microsoft Scout; instructions-only support for the GitHub Copilot family and Copilot Studio. Start a session, talk about your day, and the agent handles the rest — notes, links, indexes, performance tracking. Every conversation builds on the last.
 
 ---
 
@@ -36,7 +42,7 @@ Agent: "You're working on Project Alpha, blocked on the BE contract.
         with your manager is tomorrow — review brief is ready."
 ```
 
-Works with **Claude Code** (full support), **Codex CLI**, and **Gemini CLI** — same hooks, same commands, same vault.
+Works with **Claude Code** (full support), **Codex CLI**, **Gemini CLI**, **OpenClaw**, **Hermes**, **Copilot Cowork**, **Microsoft Scout** (hooks + commands), and **GitHub Copilot** family + **Copilot Studio** (instructions) — same hooks, same commands, same vault.
 
 Install via `shardmind install` or `git clone` — same vault either way.
 
@@ -173,15 +179,57 @@ The `om` server sends a lexical *and* a vector sub-query, so retrieval finds the
 
 ---
 
+## 🤖 Tell Your Agent To Set It Up
+
+Copy-paste one of these prompts into a fresh session in the vault directory. Your agent will read the repo, identify its config, verify the wiring, and report what's missing.
+
+> [!TIP]
+> For expanded prompts, a per-agent comparison table, and troubleshooting, see [`docs/agent-setup.md`](docs/agent-setup.md).
+
+### Generic prompt (any agent)
+
+```
+Read AGENTS.md and CLAUDE.md in this vault. Identify which agent you are, find your config file (AGENTS.md lists them all), verify that your hooks are wired to the five scripts in .claude/scripts/, and report what is missing or misconfigured. If a config file for your agent already exists, verify it. If not, explain what would need to be created and what the correct event names are for your agent's hook vocabulary.
+```
+
+### Hook-capable agents (Codex, Gemini, OpenClaw, Hermes, Cowork, Scout)
+
+```
+Read AGENTS.md, CLAUDE.md, and your agent's config file (e.g. .codex/hooks.json, .gemini/settings.json, .openclaw/settings.json, .hermes/settings.json, .cowork/settings.json, or .scout/settings.json). Set the environment variable <AGENT>_PROJECT_DIR (e.g. HERMES_PROJECT_DIR, COWORK_PROJECT_DIR) to the absolute path of this vault. Verify that all five hook scripts in .claude/scripts/ resolve from that path: session-start.ts, classify-message.ts, validate-write.ts, pre-compact.ts, stop-checklist.ts. Report any that are missing or have incorrect paths. Note: for Copilot Cowork and Microsoft Scout, hook event names are provisional — check .cowork/COWORK.md or .scout/SCOUT.md for current names and update settings.json if your agent's vocabulary differs.
+```
+
+### GitHub Copilot family (VS Code, GitHub App, Copilot CLI)
+
+```
+Read .github/copilot-instructions.md — this is your vault operating guide. For VS Code Copilot, also confirm that .github/instructions/vault.instructions.md is present and will be applied to .md files (it has applyTo: "**/*.md" in its frontmatter). Since Copilot has no hooks API, the hook scripts in .claude/scripts/ must be run manually or wired as VS Code Tasks. To run manually:
+  node --disable-warning=ExperimentalWarning --experimental-strip-types .claude/scripts/session-start.ts
+  node --disable-warning=ExperimentalWarning --experimental-strip-types .claude/scripts/stop-checklist.ts
+Report whether the instructions files are present and summarise the vault conventions you found.
+```
+
+### Copilot Studio
+
+```
+Read .copilot-studio/AGENT.md and .copilot-studio/knowledge-config.md. For vault access, register the om MCP server (.claude/scripts/om-mcp.mjs) rather than ingesting static file snapshots — this gives live search and graph traversal. If direct file ingestion is required, index brain/, org/, work/active/, work/archive/, perf/competencies/, and reference/. Exclude .obsidian/, .claude/, and memories/YYYY/MM/. Report the MCP wiring status and any missing configuration.
+```
+
+### Bring this vault to another repo
+
+```
+I want to reach my Obsidian Mind vault from this repository. The vault is at [/absolute/path/to/vault]. Please: (1) register the om MCP server by running: claude mcp add --scope user om node "/absolute/path/to/vault/.claude/scripts/om-mcp.mjs" (2) add a consultation section to this project's CLAUDE.md (or equivalent agent instructions file) following the template in the README's "🧠 Reach Your Vault From Any Repo" section. Both steps are required — the server wired without the repo-side instruction makes zero vault calls.
+```
+
+---
+
 ## 📋 Requirements
 
 - [Obsidian](https://obsidian.md) 1.12+ (for CLI support)
-- An AI coding agent: [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (full support), [Codex CLI](https://github.com/openai/codex), or [Gemini CLI](https://github.com/google-gemini/gemini-cli)
+- An AI coding agent — **full support**: [Claude Code](https://docs.anthropic.com/en/docs/claude-code); **hooks + commands**: [Codex CLI](https://github.com/openai/codex), [Gemini CLI](https://github.com/google-gemini/gemini-cli), OpenClaw, Hermes, Copilot Cowork, Microsoft Scout; **instructions only**: [GitHub Copilot](https://github.com/features/copilot) family, [Copilot Studio](https://www.microsoft.com/en-us/microsoft-copilot/copilot-studio)
 - [Node 22+ LTS](https://nodejs.org) (for hook scripts — typically already installed alongside Claude Code / Codex / Gemini CLI)
 - Git (for version history)
 - [QMD](https://github.com/tobi/qmd) (optional, for semantic search)
 
-> **Note on the Node flag.** Hook scripts execute TypeScript directly via Node's `--experimental-strip-types` flag, stable in Node 22.6+ (Aug 2024) and the default behaviour in Node 23.6+. The flag is marked experimental but has been unchanged across 22 LTS and 24 LTS; if a future Node release retires or renames it, hook commands in `.claude/settings.json`, `.codex/hooks.json`, and `.gemini/settings.json` need a one-line update.
+> **Note on the Node flag.** Hook scripts execute TypeScript directly via Node's `--experimental-strip-types` flag, stable in Node 22.6+ (Aug 2024) and the default behaviour in Node 23.6+. The flag is marked experimental but has been unchanged across 22 LTS and 24 LTS; if a future Node release retires or renames it, the hook command in each agent's config file (`.claude/settings.json`, `.codex/hooks.json`, `.gemini/settings.json`, `.openclaw/settings.json`, `.hermes/settings.json`, `.cowork/settings.json`, `.scout/settings.json`) needs a one-line update.
 
 ---
 
@@ -226,18 +274,47 @@ SessionStart loads **lightweight context** — small excerpts from key files, fi
 
 ### 🌐 Using with Other Agents
 
-obsidian-mind works with Claude Code, Codex CLI, and Gemini CLI. The vault conventions in `CLAUDE.md`, the hook scripts in `.claude/scripts/`, and the commands in `.claude/commands/` are all agent-agnostic — pure Markdown, TypeScript, and shell with no SDK dependencies.
+obsidian-mind supports 11 agents across three tiers. The vault conventions in `CLAUDE.md`, the hook scripts in `.claude/scripts/`, and the commands in `.claude/commands/` are all agent-agnostic — pure Markdown, TypeScript, and shell with no SDK dependencies.
 
-**Claude Code** — full support. Hooks, commands, subagents, and the memory system all work out of the box.
+#### Tier 1 — Full support
 
-**Codex CLI** — reads `AGENTS.md` natively. Hook config at `.codex/hooks.json` wires the same hook scripts Claude Code uses — session context, message classification, and write validation work automatically. Commands work as regular prompts (e.g. type `om-standup` without the `/` prefix).
+**Claude Code** — hooks, commands, subagents, and the memory system all work out of the box. Every feature in this README is available.
 
-**Gemini CLI** — reads `GEMINI.md` natively. Hook config at `.gemini/settings.json` maps Gemini's event names to the shared hook scripts.
+#### Tier 2 — Hooks + commands
 
-**Other agents** (Cursor, Windsurf, GitHub Copilot, JetBrains AI) — read `AGENTS.md` for vault conventions. Hook support varies by agent.
+All six agents below wire the same five hook scripts via their respective config files:
+
+| Agent | Config file | Native entry point |
+|-------|-------------|-------------------|
+| **Codex CLI** | `.codex/hooks.json` | `AGENTS.md` (read natively) |
+| **Gemini CLI** | `.gemini/settings.json` | `GEMINI.md` (read natively) |
+| **OpenClaw** | `.openclaw/settings.json` | `.openclaw/OPENCLAW.md` |
+| **Hermes** | `.hermes/settings.json` | `.hermes/HERMES.md` |
+| **Copilot Cowork** | `.cowork/settings.json` | `.cowork/COWORK.md` |
+| **Microsoft Scout** | `.scout/settings.json` | `.scout/SCOUT.md` |
+
+Commands work as slash commands (`/om-standup`) in most agents. For Codex CLI and Hermes, type the command name as a regular prompt without the `/` prefix (e.g. `om-standup`).
 
 > [!NOTE]
-> Hooks, commands, subagent prompts, and vault memory (`brain/`) are all agent-agnostic. Only the `~/.claude/` auto-memory loader is Claude Code-specific. See `AGENTS.md` for the full portability guide.
+> Event names for **Copilot Cowork** and **Microsoft Scout** are **provisional** — borrowed from Claude Code's vocabulary until those agents publish their full hook vocabularies. If your agent uses different canonical event names, update `settings.json` accordingly. The hook scripts themselves require no changes. See [`docs/agent-setup.md`](docs/agent-setup.md) for troubleshooting.
+
+#### Tier 3 — Instructions only (no hooks API)
+
+| Agent | Config / entry point |
+|-------|---------------------|
+| **VS Code Copilot** | `.github/copilot-instructions.md` + `.github/instructions/vault.instructions.md` (auto-applied to `.md` files) |
+| **GitHub App / Copilot cloud agent** | `.github/copilot-instructions.md` |
+| **GitHub Copilot CLI** | `.github/copilot-instructions.md` |
+| **Microsoft Copilot Studio** | `.copilot-studio/AGENT.md` |
+
+Hook scripts can still be run manually for these agents:
+```
+node --disable-warning=ExperimentalWarning --experimental-strip-types .claude/scripts/<script>.ts
+```
+Or wire them as VS Code Tasks.
+
+> [!NOTE]
+> See `AGENTS.md` for the full portability matrix and per-agent setup instructions. See [`docs/agent-setup.md`](docs/agent-setup.md) for copy-paste setup prompts and troubleshooting.
 
 ---
 
@@ -384,7 +461,7 @@ Every read is logged with the calling repo, so "what did that session actually s
 
 ## 🛠️ Commands
 
-Defined in `.claude/commands/`. Run them in Claude Code, Codex CLI, or Gemini CLI.
+Defined in `.claude/commands/`. Run them in any supported agent — as `/om-standup` in most, or without the `/` prefix in Codex CLI and Hermes.
 
 | Command | What It Does |
 |---------|-------------|
@@ -514,11 +591,22 @@ thinking/               Scratchpad for drafts — promote findings, then delete
 templates/              Obsidian templates with YAML frontmatter
 
 .claude/
-  commands/             18 slash commands
-  agents/               9 subagents
+  commands/             Slash commands (agent-agnostic)
+  agents/               Subagents
   scripts/              Hook scripts + charcount.ts utility
   skills/               Obsidian + QMD skills
-  settings.json         5 hooks configuration
+  settings.json         Claude Code hooks configuration
+
+.codex/                 Codex CLI hook config (hooks.json)
+.gemini/                Gemini CLI hook config (settings.json)
+.openclaw/              OpenClaw hook config (settings.json) + OPENCLAW.md
+.hermes/                Hermes hook config (settings.json) + HERMES.md
+.cowork/                Copilot Cowork hook config (settings.json) + COWORK.md
+.scout/                 Microsoft Scout hook config (settings.json) + SCOUT.md
+.github/
+  copilot-instructions.md   Vault guide for GitHub Copilot family
+  instructions/             Path-scoped instructions (vault.instructions.md)
+.copilot-studio/        Copilot Studio guide (AGENT.md) + knowledge-config.md
 
 .scripts/                Vault-level tooling — QMD bootstrap (run once on a fresh clone)
 
@@ -592,7 +680,7 @@ The easiest way — just tell your agent:
 Update this vault to the latest obsidian-mind from https://github.com/breferrari/obsidian-mind
 ```
 
-The agent will pull the latest changes, resolve conflicts, and update infrastructure files. Works with Claude Code, Codex CLI, or Gemini CLI.
+The agent will pull the latest changes, resolve conflicts, and update infrastructure files. Works with any supported agent.
 
 ### Updating an existing clone
 
@@ -603,7 +691,7 @@ cd your-vault
 git pull origin main
 ```
 
-New files (`AGENTS.md`, `GEMINI.md`, `.codex/`, `.gemini/`) appear automatically and hook scripts are updated in place.
+New files (`AGENTS.md`, `GEMINI.md`, `.codex/`, `.gemini/`, `.openclaw/`, `.hermes/`, `.cowork/`, `.scout/`, `.github/copilot-instructions.md`, `.copilot-studio/`) appear automatically and hook scripts are updated in place.
 
 ### Updating a fork
 
@@ -615,7 +703,7 @@ git fetch upstream
 git merge upstream/main
 ```
 
-Resolve any conflicts in files you customized (typically `CLAUDE.md`, `brain/` notes). Infrastructure files (`.claude/scripts/`, `.codex/`, `.gemini/`) should merge cleanly.
+Resolve any conflicts in files you customized (typically `CLAUDE.md`, `brain/` notes). Infrastructure files (`.claude/scripts/`, `.codex/`, `.gemini/`, `.openclaw/`, `.hermes/`, `.cowork/`, `.scout/`) should merge cleanly.
 
 ### Adopting an existing clone into ShardMind (v5.x → v6)
 

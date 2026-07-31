@@ -12,6 +12,12 @@
 [![Claude Code](https://img.shields.io/badge/claude%20code-full%20support-D97706)](https://docs.anthropic.com/en/docs/claude-code)
 [![Codex CLI](https://img.shields.io/badge/codex%20cli-hooks%20%2B%20commands-10A37F)](https://github.com/openai/codex)
 [![Gemini CLI](https://img.shields.io/badge/gemini%20cli-hooks%20%2B%20commands-4285F4)](https://github.com/google-gemini/gemini-cli)
+[![OpenClaw](https://img.shields.io/badge/openclaw-hooks%20%2B%20commands-6B46C1)](.openclaw/settings.json)
+[![Hermes](https://img.shields.io/badge/hermes-hooks%20%2B%20commands-C0392B)](.hermes/settings.json)
+[![Copilot Cowork](https://img.shields.io/badge/copilot%20cowork-hooks%20%2B%20commands-0078D4)](.cowork/settings.json)
+[![Microsoft Scout](https://img.shields.io/badge/microsoft%20scout-hooks%20%2B%20commands-00B4D8)](.scout/settings.json)
+[![GitHub Copilot](https://img.shields.io/badge/github%20copilot-instructions-24292E)](https://github.com/features/copilot)
+[![Copilot Studio](https://img.shields.io/badge/copilot%20studio-instructions-8764B8)](https://www.microsoft.com/en-us/microsoft-copilot/copilot-studio)
 [![Obsidian](https://img.shields.io/badge/obsidian-1.12%2B-7C3AED)](https://obsidian.md)
 [![Obsidian CLI](https://img.shields.io/badge/obsidian--cli-integrated-E6E6E6)](https://github.com/kepano/obsidian-cli)
 [![Obsidian Skills](https://img.shields.io/badge/obsidian--skills-integrated-8B5CF6)](https://github.com/kepano/obsidian-skills)
@@ -166,10 +172,52 @@ QMD는 **세 개의 작은 모델을 로컬에서** 실행하므로, 설정할 A
 
 ---
 
+## 🤖 에이전트에게 설정을 요청하기
+
+아래 프롬프트를 볼트 디렉토리의 새 세션에 복사하여 붙여넣으세요. 에이전트가 저장소를 읽고, 설정을 확인하고, 누락된 항목을 보고합니다.
+
+> [!TIP]
+> 더 자세한 프롬프트, 에이전트별 비교 표, 문제 해결은 [`docs/agent-setup.md`](docs/agent-setup.md) (영어)를 참조하세요.
+
+### 범용 프롬프트 (모든 에이전트)
+
+```
+Read AGENTS.md and CLAUDE.md in this vault. Identify which agent you are, find your config file (AGENTS.md lists them all), verify that your hooks are wired to the five scripts in .claude/scripts/, and report what is missing or misconfigured. If a config file for your agent already exists, verify it. If not, explain what would need to be created and what the correct event names are for your agent's hook vocabulary.
+```
+
+### 훅 지원 에이전트 (Codex, Gemini, OpenClaw, Hermes, Cowork, Scout)
+
+```
+Read AGENTS.md, CLAUDE.md, and your agent's config file (e.g. .codex/hooks.json, .gemini/settings.json, .openclaw/settings.json, .hermes/settings.json, .cowork/settings.json, or .scout/settings.json). Set the environment variable <AGENT>_PROJECT_DIR (e.g. HERMES_PROJECT_DIR, COWORK_PROJECT_DIR) to the absolute path of this vault. Verify that all five hook scripts in .claude/scripts/ resolve from that path: session-start.ts, classify-message.ts, validate-write.ts, pre-compact.ts, stop-checklist.ts. Report any that are missing or have incorrect paths. Note: for Copilot Cowork and Microsoft Scout, hook event names are provisional — check .cowork/COWORK.md or .scout/SCOUT.md for current names and update settings.json if your agent's vocabulary differs.
+```
+
+### GitHub Copilot 계열 (VS Code, GitHub App, Copilot CLI)
+
+```
+Read .github/copilot-instructions.md — this is your vault operating guide. For VS Code Copilot, also confirm that .github/instructions/vault.instructions.md is present and will be applied to .md files (it has applyTo: "**/*.md" in its frontmatter). Since Copilot has no hooks API, the hook scripts in .claude/scripts/ must be run manually or wired as VS Code Tasks. To run manually:
+  node --disable-warning=ExperimentalWarning --experimental-strip-types .claude/scripts/session-start.ts
+  node --disable-warning=ExperimentalWarning --experimental-strip-types .claude/scripts/stop-checklist.ts
+Report whether the instructions files are present and summarise the vault conventions you found.
+```
+
+### Copilot Studio
+
+```
+Read .copilot-studio/AGENT.md and .copilot-studio/knowledge-config.md. For vault access, register the om MCP server (.claude/scripts/om-mcp.mjs) rather than ingesting static file snapshots — this gives live search and graph traversal. If direct file ingestion is required, index brain/, org/, work/active/, work/archive/, perf/competencies/, and reference/. Exclude .obsidian/, .claude/, and memories/YYYY/MM/. Report the MCP wiring status and any missing configuration.
+```
+
+### 다른 저장소에서 이 볼트 사용하기
+
+```
+I want to reach my Obsidian Mind vault from this repository. The vault is at [/absolute/path/to/vault]. Please: (1) register the om MCP server by running: claude mcp add --scope user om node "/absolute/path/to/vault/.claude/scripts/om-mcp.mjs" (2) add a consultation section to this project's CLAUDE.md (or equivalent agent instructions file) following the template in the README's "🧠 Reach Your Vault From Any Repo" section. Both steps are required — the server wired without the repo-side instruction makes zero vault calls.
+```
+
+---
+
 ## 📋 요구 사항
 
 - [Obsidian](https://obsidian.md) 1.12+ (CLI 지원)
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
+- AI 코딩 에이전트 — **완전 지원**: [Claude Code](https://docs.anthropic.com/en/docs/claude-code)；**훅 + 커맨드**: [Codex CLI](https://github.com/openai/codex)、[Gemini CLI](https://github.com/google-gemini/gemini-cli)、OpenClaw、Hermes、Copilot Cowork、Microsoft Scout；**지침만**: [GitHub Copilot](https://github.com/features/copilot) 계열、[Copilot Studio](https://www.microsoft.com/en-us/microsoft-copilot/copilot-studio)
 - [Node 22+ LTS](https://nodejs.org) (훅 스크립트용 — Claude Code / Codex / Gemini CLI와 함께 이미 설치되어 있을 가능성이 큽니다)
 - Git (버전 히스토리용)
 - [QMD](https://github.com/tobi/qmd) (선택 사항, 시맨틱 검색용)
@@ -219,18 +267,47 @@ SessionStart는 **가벼운 컨텍스트**를 로드합니다 — 주요 파일�
 
 ### 🌐 다른 에이전트와 사용하기
 
-obsidian-mind는 Claude Code, Codex CLI, Gemini CLI에서 작동합니다. `CLAUDE.md`의 볼트 규약, `.claude/scripts/`의 훅 스크립트, `.claude/commands/`의 커맨드는 모두 에이전트 비의존적입니다 — 순수 Markdown, TypeScript, 셸이며 SDK 의존성이 없습니다.
+obsidian-mind는 3개 계층에서 11개의 에이전트를 지원합니다. `CLAUDE.md`의 볼트 규약, `.claude/scripts/`의 훅 스크립트, `.claude/commands/`의 커맨드는 모두 에이전트 비의존적입니다 — 순수 Markdown, TypeScript, 셸이며 SDK 의존성이 없습니다.
 
-**Claude Code** — 완전 지원. 훅, 커맨드, 서브에이전트, 메모리 시스템이 모두 기본으로 작동합니다.
+#### 계층 1 — 완전 지원
 
-**Codex CLI** — `AGENTS.md`를 네이티브로 읽습니다. `.codex/hooks.json`의 훅 설정이 Claude Code와 동일한 훅 스크립트를 연결합니다 — 세션 컨텍스트, 메시지 분류, 쓰기 검증이 자동으로 작동합니다.
+**Claude Code** — 훅, 커맨드, 서브에이전트, 메모리 시스템이 모두 기본으로 작동합니다. 이 README의 모든 기능을 사용할 수 있습니다.
 
-**Gemini CLI** — `GEMINI.md`를 네이티브로 읽습니다. `.gemini/settings.json`의 훅 설정이 Gemini의 이벤트 이름을 공유 훅 스크립트에 매핑합니다.
+#### 계층 2 — 훅 + 커맨드
 
-**기타 에이전트** (Cursor, Windsurf, GitHub Copilot, JetBrains AI) — `AGENTS.md`로 볼트 규약을 읽습니다. 훅 지원은 에이전트마다 다릅니다.
+아래 6개 에이전트는 각자의 설정 파일을 통해 동일한 5개 훅 스크립트를 연결합니다:
+
+| 에이전트 | 설정 파일 | 네이티브 진입점 |
+|---------|---------|--------------|
+| **Codex CLI** | `.codex/hooks.json` | `AGENTS.md` (네이티브 읽기) |
+| **Gemini CLI** | `.gemini/settings.json` | `GEMINI.md` (네이티브 읽기) |
+| **OpenClaw** | `.openclaw/settings.json` | `.openclaw/OPENCLAW.md` |
+| **Hermes** | `.hermes/settings.json` | `.hermes/HERMES.md` |
+| **Copilot Cowork** | `.cowork/settings.json` | `.cowork/COWORK.md` |
+| **Microsoft Scout** | `.scout/settings.json` | `.scout/SCOUT.md` |
+
+커맨드는 대부분의 에이전트에서 슬래시 커맨드(`/om-standup`)로 작동합니다. Codex CLI와 Hermes에서는 `/` 없이 일반 프롬프트(예: `om-standup`)로 입력합니다.
 
 > [!NOTE]
-> 훅, 커맨드, 서브에이전트 프롬프트, 볼트 메모리(`brain/`)는 모두 에이전트 비의존적입니다. `~/.claude/` 자동 메모리 로더만 Claude Code 전용입니다. 자세한 내용은 `AGENTS.md`를 참조하세요.
+> **Copilot Cowork** 와 **Microsoft Scout** 의 이벤트 이름은 **잠정적** 입니다 — 해당 에이전트들이 전체 훅 어휘집을 공개할 때까지 Claude Code의 어휘를 차용했습니다. 자세한 내용은 [`docs/agent-setup.md`](docs/agent-setup.md) 를 참조하세요.
+
+#### 계층 3 — 지침만 (훅 API 없음)
+
+| 에이전트 | 설정 / 진입점 |
+|---------|------------|
+| **VS Code Copilot** | `.github/copilot-instructions.md` + `.github/instructions/vault.instructions.md` (`.md` 파일에 자동 적용) |
+| **GitHub App / Copilot cloud agent** | `.github/copilot-instructions.md` |
+| **GitHub Copilot CLI** | `.github/copilot-instructions.md` |
+| **Microsoft Copilot Studio** | `.copilot-studio/AGENT.md` |
+
+이 에이전트들을 위해 훅 스크립트를 수동으로 실행할 수 있습니다:
+```
+node --disable-warning=ExperimentalWarning --experimental-strip-types .claude/scripts/<script>.ts
+```
+또는 VS Code Tasks로 연결할 수도 있습니다.
+
+> [!NOTE]
+> 전체 이식성 매트릭스와 에이전트별 설정 지침은 `AGENTS.md`를 참조하세요. 복사-붙여넣기 설정 프롬프트와 문제 해결은 [`docs/agent-setup.md`](docs/agent-setup.md) 를 참조하세요.
 
 ---
 
@@ -495,7 +572,7 @@ YAML 프론트매터가 포함된 템플릿으로, 각각 점진적 공개를 �
 이 볼트를 최신 obsidian-mind로 업데이트해줘 https://github.com/breferrari/obsidian-mind
 ```
 
-에이전트가 최신 변경사항을 가져오고, 충돌을 해결하고, 인프라 파일을 업데이트합니다. Claude Code, Codex CLI, Gemini CLI 모두에서 작동합니다.
+에이전트가 최신 변경사항을 가져오고, 충돌을 해결하고, 인프라 파일을 업데이트합니다. 지원되는 모든 에이전트에서 작동합니다.
 
 ### 기존 클론 업데이트
 
@@ -506,7 +583,7 @@ cd your-vault
 git pull origin main
 ```
 
-새 파일(`AGENTS.md`, `GEMINI.md`, `.codex/`, `.gemini/`)이 자동으로 추가되고 훅 스크립트도 업데이트됩니다.
+새 파일(`AGENTS.md`, `GEMINI.md`, `.codex/`, `.gemini/`, `.openclaw/`, `.hermes/`, `.cowork/`, `.scout/`, `.github/copilot-instructions.md`, `.copilot-studio/`)이 자동으로 추가되고 훅 스크립트도 업데이트됩니다.
 
 ### 포크 업데이트
 
@@ -518,7 +595,7 @@ git fetch upstream
 git merge upstream/main
 ```
 
-커스터마이징한 파일(일반적으로 `CLAUDE.md`, `brain/` 노트)의 충돌을 해결하세요. 인프라 파일(`.claude/scripts/`, `.codex/`, `.gemini/`)은 깔끔하게 병합됩니다.
+커스터마이징한 파일(일반적으로 `CLAUDE.md`, `brain/` 노트)의 충돌을 해결하세요. 인프라 파일(`.claude/scripts/`, `.codex/`, `.gemini/`, `.openclaw/`, `.hermes/`, `.cowork/`, `.scout/`)은 깔끔하게 병합됩니다.
 
 ### 기존 클론을 ShardMind로 채택 (v5.x → v6)
 
