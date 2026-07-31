@@ -6,27 +6,34 @@ This vault is built for [Claude Code](https://claude.ai/code) with a full operat
 
 ## Hooks
 
-The hook scripts in `.claude/scripts/` are agent-agnostic TypeScript and shell, executed natively by Node via `--experimental-strip-types` — no build step, no runtime dependencies, no Claude SDK. Hook configs are provided for three agents:
+The hook scripts in `.claude/scripts/` are agent-agnostic TypeScript and shell, executed natively by Node via `--experimental-strip-types` — no build step, no runtime dependencies, no Claude SDK. Hook configs are provided for five agents:
 
 | Agent | Config | Status |
 |-------|--------|--------|
 | Claude Code | `.claude/settings.json` | Full support |
 | Codex CLI | `.codex/hooks.json` | Shared hook scripts |
 | Gemini CLI | `.gemini/settings.json` | Shared hook scripts |
+| OpenClaw | `.openclaw/settings.json` | Shared hook scripts |
+| Hermes | `.hermes/settings.json` | Shared hook scripts |
+| VS Code Copilot | `.github/copilot-instructions.md` | Instructions only — no hooks API |
+| GitHub App / Copilot cloud agent | `.github/copilot-instructions.md` | Instructions only — no hooks API |
+| GitHub Copilot CLI | `.github/copilot-instructions.md` | Shared instructions |
 
-| Script | Purpose | Claude event | Codex event | Gemini event |
-|--------|---------|--------------|-------------|--------------|
-| `session-start.ts` | Inject vault context at startup | SessionStart | SessionStart | SessionStart |
-| `classify-message.ts` | Classify messages, inject routing hints | UserPromptSubmit | UserPromptSubmit | BeforeAgent |
-| `validate-write.ts` | Validate frontmatter and wikilinks | PostToolUse | PostToolUse | AfterTool |
-| `pre-compact.ts` | Back up transcript before compaction | PreCompact | — | PreCompress |
+| Script | Purpose | Claude event | Codex event | Gemini event | OpenClaw event | Hermes event |
+|--------|---------|--------------|-------------|--------------|----------------|--------------|
+| `session-start.ts` | Inject vault context at startup | SessionStart | SessionStart | SessionStart | SessionStart | SessionStart |
+| `classify-message.ts` | Classify messages, inject routing hints | UserPromptSubmit | UserPromptSubmit | BeforeAgent | BeforeAgent | UserPromptSubmit |
+| `validate-write.ts` | Validate frontmatter and wikilinks | PostToolUse | PostToolUse | AfterTool | AfterTool | PostToolUse |
+| `pre-compact.ts` | Back up transcript before compaction | PreCompact | — | PreCompress | PreCompress | PreCompact |
+| `stop-checklist.ts` | End-of-session hygiene checklist | — | Stop | SessionEnd | SessionEnd | Stop |
 
 ## Commands
 
 Commands live in `.claude/commands/` — agent-agnostic markdown with YAML frontmatter. `brain/Skills.md` is the catalog.
 
-- **Claude Code / Gemini CLI**: invoke as `/om-standup`, `/om-dump`, etc.
-- **Codex CLI**: type the command name as a regular prompt without the `/` prefix (e.g. `om-standup`). Codex will find and execute the command file.
+- **Claude Code / Gemini CLI / OpenClaw**: invoke as `/om-standup`, `/om-dump`, etc.
+- **Codex CLI / Hermes**: type the command name as a regular prompt without the `/` prefix (e.g. `om-standup`). The agent will find and execute the command file.
+- **Copilot-family agents** (VS Code Copilot, GitHub App, Copilot CLI): commands are not auto-invoked; read `brain/Skills.md` for the catalog and run scripts manually.
 
 ## Memory
 
@@ -48,6 +55,7 @@ Do not register the raw `qmd` server in a consuming repo — it searches every n
 
 - **Codex CLI**: as of the [Skills launch (Dec 2025)](https://developers.openai.com/codex/changelog), Codex discovers skills at `.agents/skills/<name>/SKILL.md` (directory-per-skill; frontmatter requires `name` and `description`). Mirror each `.claude/agents/*.md` into a `SKILL.md`, keeping the prompt body intact. See the [Codex Skills docs](https://developers.openai.com/codex/skills) for the full schema.
 - **Gemini CLI**: agents live in `.gemini/agents/`. Copy the files and adapt the YAML frontmatter fields to Gemini's schema.
+- **OpenClaw / Hermes**: subagent support follows each agent's own convention; the prompt content in `.claude/agents/` is agent-agnostic and can be adapted.
 
 ## What's Claude Code-specific
 
@@ -65,6 +73,15 @@ project_doc_fallback_filenames = ["CLAUDE.md"]
 { "context": { "fileName": ["GEMINI.md", "CLAUDE.md"] } }
 ```
 
-**Other agents** (Cursor, Windsurf, Copilot): Read `AGENTS.md` for vault conventions. Hook support varies by agent.
+**OpenClaw**: Hooks are configured in `.openclaw/settings.json` using the shared scripts. Read `OPENCLAW.md` for vault conventions entry point and `CLAUDE.md` for full details.
+
+**Hermes**: Hooks are configured in `.hermes/settings.json` using the shared scripts. Read `HERMES.md` for vault conventions entry point and `CLAUDE.md` for full details. Note: Hermes's internal skill memory is session-level only — durable learnings must be written to `brain/` topic notes.
+
+**Copilot-family agents** (VS Code Copilot, GitHub App / Copilot cloud agent, GitHub Copilot CLI): Read `.github/copilot-instructions.md` for vault conventions. VS Code Copilot also auto-applies `.github/instructions/vault.instructions.md` to every `.md` file. There is no hooks API; run scripts in `.claude/scripts/` manually or via VS Code Tasks:
+```
+node --disable-warning=ExperimentalWarning --experimental-strip-types .claude/scripts/<script>.ts
+```
+
+**Other agents** (Cursor, Windsurf): Read `AGENTS.md` for vault conventions. Hook support varies by agent.
 
 For more information, see the [README](README.md).
