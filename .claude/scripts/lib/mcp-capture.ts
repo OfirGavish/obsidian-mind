@@ -72,6 +72,37 @@ export function slugifyTitle(title: unknown): string {
 }
 
 /**
+ * A description that stops at a word, not mid-syllable.
+ *
+ * The naive `slice(0, MAX)` cuts wherever the budget runs out, and the result is
+ * indistinguishable from a complete sentence that happened to end there. That
+ * field is the single most load-bearing line a note has in a vault whose
+ * `MEMORY.md` is generated from it: it is what a future session reads before
+ * deciding whether to open the note at all. A reader who cannot tell an
+ * amputated description from a whole one has to open every note to find out,
+ * which is the cost the index exists to remove.
+ *
+ * So: break on whitespace and mark it. The ellipsis is the whole point — it
+ * makes truncation *visible*, which is what the hard cut never was.
+ *
+ * The 60% floor covers the degenerate case of a budget containing no whitespace
+ * at all (one long token, or a script that does not space between words), where
+ * breaking at the last space would throw away most of the allowance. There, a
+ * hard cut with an ellipsis is still better than a hard cut without one.
+ */
+export function clampDescription(text: unknown, max: number = DESCRIPTION_MAX): string {
+	const flat = String(text ?? "")
+		.replace(/"/g, "'")
+		.replace(/\s+/g, " ")
+		.trim();
+	if (flat.length <= max) return flat;
+	const cut = flat.slice(0, max - 1);
+	const lastSpace = cut.lastIndexOf(" ");
+	const stem = lastSpace > max * 0.6 ? cut.slice(0, lastSpace) : cut;
+	return `${stem.replace(/[\s,;:.–—-]+$/, "")}…`;
+}
+
+/**
  * The project folder matching a calling repo, if this vault has one.
  *
  * Exact match, then case-insensitive, then a prefix match in either direction —
@@ -228,18 +259,44 @@ export function renderCapture(
 	const related = [home, informed].filter(Boolean).join("\n");
 
 	const summary = String(input.summary ?? "").trim();
+	const title = String(input.title ?? "").trim();
+
+	// The title, carried as an alias, is what makes this note reachable by the
+	// name it calls itself.
+	//
+	// The filename is a slug of the title: lowercased, punctuation stripped,
+	// whitespace hyphenated, cut at SLUG_MAX, and prefixed with the date. So the
+	// basename is NEVER the title — not only when it was truncated. `[[I3 lands:
+	// a soak]]` cannot resolve to `2026-07-31-i3-lands-a-soak.md`, because
+	// `resolvableNames` matches on basenames and aliases and this note had
+	// neither spelling of its own name.
+	//
+	// The consequence was that every cross-reference this renderer emits between
+	// its own notes fell to `_(no note yet)_`, including references to notes
+	// written hours earlier, so a run of captures arrived mutually unlinked —
+	// orphans, in a vault whose stated rule is that a note without links is a
+	// bug. The links were always *intended*; the resolver simply could not see
+	// the target.
+	//
+	// Fixing it here rather than by keeping full-length filenames is deliberate:
+	// filenames are already published and linked, a longer one still would not
+	// round-trip through slugification, and `resolvableNames` has read aliases
+	// since it was written — for exactly this class of problem, where a note's
+	// real name and its file's name differ.
+	const aliases = title ? ["aliases:", `  - "${title.replace(/"/g, "'")}"`] : [];
 
 	return [
 		"---",
 		`date: ${day}`,
-		`description: "${summary.replace(/"/g, "'").replace(/\s+/g, " ").slice(0, DESCRIPTION_MAX)}"`,
+		`description: "${clampDescription(summary)}"`,
+		...aliases,
 		"tags:",
 		input.kind === "decision" ? "  - decision" : "  - project-note",
 		...(dest.project ? [`project: ${dest.project}`] : []),
 		`source_repo: ${caller}`,
 		"---",
 		"",
-		`# ${String(input.title ?? "").trim()}`,
+		`# ${title}`,
 		"",
 		summary,
 		section("What changed", list(input.changes)),

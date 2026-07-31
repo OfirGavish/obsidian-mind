@@ -24,9 +24,11 @@ import {
 	resolveDestination,
 	renderCapture,
 	captureNote,
+	clampDescription,
 	type Destination,
 } from "../lib/mcp-capture.ts";
 import type { ExposurePolicy } from "../lib/mcp-exposure.ts";
+import { resolvableNames } from "../lib/mcp-memory-bridge.ts";
 
 const NOW = new Date("2026-07-26T10:00:00Z");
 const POLICY: ExposurePolicy = { roots: ["brain", "projects"], neverExpose: new Set(), source: "manifest", memoryRoot: "memories" };
@@ -308,5 +310,110 @@ describe("writing a capture", () => {
 			captureNote(dir, POLICY, {}, null, BASIC, new Set(), { now: NOW });
 			assert.equal(readFileSync(join(dir, "inbox", "existing.md"), "utf8"), "keep me");
 		});
+	});
+});
+
+// ---------------------------------------------------------------------------
+// A capture reachable by the name it calls itself (#180)
+// ---------------------------------------------------------------------------
+
+describe("a capture is reachable by its own title", () => {
+	const dest: Destination = { dir: "/v/projects/atlas/notes", rel: "projects/atlas/notes", project: "atlas", routed: "caller-identity" };
+
+	test("the title is carried as an alias, because the basename never is", () => {
+		const title = "I3 lands: a soak over the whole pipeline";
+		const md = renderCapture({ title, summary: "s", kind: "note" }, dest, "atlas", new Set(), NOW);
+		assert.match(md, /^aliases:\n {2}- "I3 lands: a soak over the whole pipeline"$/m);
+	});
+
+	test("a title with a quote cannot break the frontmatter", () => {
+		const md = renderCapture({ title: 'The "obvious" fix', summary: "s", kind: "note" }, dest, "atlas", new Set(), NOW);
+		assert.match(md, /^ {2}- "The 'obvious' fix"$/m);
+		assert.doesNotMatch(md, /- "The "obvious/);
+	});
+
+	test("an empty title emits no alias block rather than an empty one", () => {
+		const md = renderCapture({ title: "", summary: "s", kind: "note" }, dest, "atlas", new Set(), NOW);
+		assert.doesNotMatch(md, /^aliases:/m);
+	});
+
+	/**
+	 * The regression that motivated #180, asserted end to end rather than on the
+	 * alias line alone. Writing the alias is the mechanism; being resolvable is
+	 * the property, and only the round trip proves the two agree.
+	 *
+	 * Before the fix this failed on every capture, not only long-titled ones:
+	 * the basename carries a date prefix, is lowercased and has its punctuation
+	 * stripped, so it is never the title even when nothing was truncated.
+	 */
+	test("round trip: a written capture resolves by title through resolvableNames", () => {
+		withVault((dir) => {
+			const title = "The harden audit of I2b found a live I9 breach the suite could not see";
+			captureNote(dir, POLICY, {}, null, { title, summary: "s", kind: "note" }, new Set(), { now: NOW });
+
+			const files = readdirSync(join(dir, "inbox"));
+			assert.equal(files.length, 1, "exactly one capture written");
+
+			const label = files[0]!.replace(/\.md$/, "");
+			// The precondition is that the basename is not the title — NOT that it
+			// is shorter. It carries an 11-character date prefix, so a slug cut at
+			// 60 can be longer than the title it came from and still not be it.
+			assert.notEqual(label.toLowerCase(), title.toLowerCase(), "precondition: the basename is a slug, not the title");
+
+			const resolvable = resolvableNames([{ label, full: join(dir, "inbox", files[0]!), scope: "inbox" }]);
+			assert.ok(resolvable.has(title.toLowerCase()), "the note must resolve by the name it calls itself");
+		});
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Descriptions stop at a word (#180)
+// ---------------------------------------------------------------------------
+
+describe("clamping a description", () => {
+	test("a short description is returned whole and unmarked", () => {
+		assert.equal(clampDescription("Short and complete.", 150), "Short and complete.");
+	});
+
+	/**
+	 * The fixture is irregular on purpose, and the first version of this test was
+	 * wrong in a way worth keeping the note about: it used `"alpha ".repeat(60)`,
+	 * where the token length divides the budget so the *hard cut* lands on a word
+	 * boundary by arithmetic accident. Disabling the word-break entirely still
+	 * passed. A fixture has to distinguish the implementation from its mutation,
+	 * and one built from a single repeated token cannot.
+	 *
+	 * So: varied word lengths, and the assertion is that every character returned
+	 * came from a whole word of the input.
+	 */
+	const PROSE = "the settle margin stays at two seconds because granularity is not uniform within one volume";
+
+	for (const max of [30, 41, 57, 60, 73]) {
+		test(`a long one breaks on whitespace and says it was cut (budget ${max})`, () => {
+			const out = clampDescription(PROSE, max);
+			assert.ok(out.endsWith("…"), "truncation must be visible");
+			assert.ok(out.length <= max, `stayed within budget, got ${out.length}`);
+
+			const kept = out.slice(0, -1);
+			const words = PROSE.split(" ");
+			// Every token kept must be a complete word of the source, and the next
+			// source word must not fit — otherwise it broke early rather than late.
+			const keptWords = kept.split(" ");
+			assert.deepEqual(keptWords, words.slice(0, keptWords.length), `broke mid-word: ${JSON.stringify(out)}`);
+		});
+	}
+
+	test("a budget containing no whitespace still marks the cut", () => {
+		const out = clampDescription("x".repeat(400), 50);
+		assert.equal(out.length, 50);
+		assert.ok(out.endsWith("…"));
+	});
+
+	test("trailing punctuation is not left dangling before the ellipsis", () => {
+		assert.doesNotMatch(clampDescription("one two three, four five six seven", 22), /[,;:–—-]…$/);
+	});
+
+	test("whitespace is flattened and quotes made frontmatter-safe", () => {
+		assert.equal(clampDescription('a\n\nb  "c"', 150), "a b 'c'");
 	});
 });
