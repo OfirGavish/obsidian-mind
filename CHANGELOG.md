@@ -15,6 +15,13 @@
 
 
 
+
+## v8.3.1 — 2026-07-31
+
+### Fixed
+- health reports promotions that name a note but serve nothing
+- the vault zip shipped a file left behind by a test
+
 ## v8.3.0 — 2026-07-31
 
 ### Added
