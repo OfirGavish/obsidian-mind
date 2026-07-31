@@ -326,3 +326,34 @@ describe("reader robustness", () => {
 	});
 });
 
+
+// ---------------------------------------------------------------------------
+// Promotion is visible to the caller (#179, partial)
+// ---------------------------------------------------------------------------
+
+describe("a promoted capture says so", () => {
+	test("the marker is parsed off frontmatter", () => {
+		assert.equal(facetsOf({ promoted: "brain/Gotchas - Engineering" }).promoted, "brain/Gotchas - Engineering");
+	});
+
+	test("an unpromoted capture reports null rather than a falsy string", () => {
+		assert.equal(facetsOf({}).promoted, null);
+		assert.equal(facetsOf({ promoted: 123 }).promoted, null, "a non-string marker is not a note name");
+	});
+
+	/**
+	 * Promotion must not change who can see a memory. The marker records that a
+	 * corrected copy exists in `brain/`; it says nothing about reach, and reading
+	 * it as a reach signal would silently widen or narrow the scope contract.
+	 */
+	test("promotion does not alter visibility", () => {
+		const scoped = { scope: "project", projects: ["atlas"] };
+		for (const caller of Object.values(CALLERS)) {
+			assert.equal(
+				isVisibleTo(facetsOf({ ...scoped, promoted: "brain/Gotchas" }), caller),
+				isVisibleTo(facetsOf(scoped), caller),
+				"the marker must be inert to the visibility rule",
+			);
+		}
+	});
+});

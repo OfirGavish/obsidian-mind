@@ -268,6 +268,11 @@ export function createHandlers(deps: ServerDeps): Handlers {
 				m.facets.platforms.length ? `platforms: ${m.facets.platforms.join(", ")}` : null,
 				m.facets.date ? `as of ${m.facets.date}` : null,
 				m.facets.superseded_by.length ? `SUPERSEDED by ${m.facets.superseded_by.join("; ")}` : null,
+				// Named per entry rather than only in the footer, because a caller
+				// quoting one memory out of five needs to know THIS one has a
+				// corrected twin — a footer applies to the response, not to the line
+				// being copied.
+				m.facets.promoted ? `promoted to ${m.facets.promoted}` : null,
 				m.why ? `why: ${m.why}` : null,
 			].filter(Boolean);
 			// Body headings are demoted so the only `##` lines in the response are
@@ -277,6 +282,28 @@ export function createHandlers(deps: ServerDeps): Handlers {
 			const body = m.body.replace(/^(#{1,4})\s/gm, (_, h: string) => `${"#".repeat(Math.min(h.length + 3, 6))} `);
 			return `## ${m.title ?? "(untitled)"}\n${m.rel}\n(${facets.join(" · ")})\n\n${body}`;
 		});
+
+		// What a promoted entry costs the reader, said once, at the bottom.
+		//
+		// `recall` reads only the memory root; `search` and `expand` see
+		// everything but. So a promoted lesson exists in two places and this
+		// caller can only reach one of them — the raw capture, which may predate a
+		// correction that was swept through the promoted version. Silence here
+		// would present the older text as the current answer.
+		//
+		// This does not serve the `brain/` note (an ordinary note declares no
+		// scope, so returning one would discard the boundary the memory layer
+		// enforces). It names it, which is what a caller needs to ask for it by
+		// path or to weigh what it just read.
+		const promoted = shown.filter((m) => m.facets.promoted);
+		if (promoted.length) {
+			lines.push(
+				`\n---\n${promoted.length} of these ${promoted.length === 1 ? "has" : "have"} been promoted into the vault's \`brain/\` notes, ` +
+					`named above. **The promoted note wins on any conflict** — it is the corrected, correction-swept version, ` +
+					`and what you are reading here is the capture as first written. This surface cannot serve it; ` +
+					`ask a vault session, or request the note by path, before relying on a detail that looks wrong.`,
+			);
+		}
 
 		if (explain && result.withheld.length) {
 			// Counts and reasons only. Naming a withheld memory would put another

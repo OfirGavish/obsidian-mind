@@ -43,6 +43,23 @@ export interface Facets {
 	readonly session: string | null;
 	readonly superseded_by: string[];
 	readonly source: string | null;
+	/**
+	 * The `brain/` note this capture was promoted into, if any.
+	 *
+	 * `recall` reads only the memory root and `search`/`expand` see everything
+	 * but, so the two surfaces are disjoint: a promoted lesson exists twice, and
+	 * a foreign repo can only ever reach this copy. That copy is the raw capture,
+	 * which may predate a correction the promoted version has already had swept
+	 * through it.
+	 *
+	 * Serving the `brain/` note through `recall` is the real fix and is not this:
+	 * an ordinary note declares no `scope` or `projects`, so returning one would
+	 * either discard the boundary the memory layer exists to enforce or require
+	 * reach metadata to survive promotion. That work is tracked, and until it
+	 * lands the honest interim is to say the corrected version exists and name
+	 * it, rather than to serve a raw capture as though nothing had superseded it.
+	 */
+	readonly promoted: string | null;
 }
 
 export interface Caller {
@@ -120,6 +137,7 @@ export function facetsOf(fm: Record<string, unknown> | null | undefined): Facets
 		session: str(fm?.session),
 		superseded_by: list(fm?.superseded_by),
 		source: str(fm?.source),
+		promoted: str(fm?.promoted),
 	};
 }
 
