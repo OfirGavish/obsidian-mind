@@ -14,6 +14,22 @@
 
 
 
+
+## v8.3.0 — 2026-07-31
+
+### Added
+- recall serves the promoted block, found by segmenting the note
+- recall says when a memory has a corrected version it cannot serve
+
+### Changed
+- name the predicate that answers "may this path be read"
+
+### Fixed
+- a private marker past the head window read as public
+- quote frontmatter as a YAML scalar, not by swapping quote characters
+- never-expose withheld only the spelling you typed
+- a capture could not be linked by the name it calls itself
+
 ## v8.2.0 — 2026-07-30
 
 ### Added
