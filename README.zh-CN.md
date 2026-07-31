@@ -12,6 +12,12 @@
 [![Claude Code](https://img.shields.io/badge/claude%20code-full%20support-D97706)](https://docs.anthropic.com/en/docs/claude-code)
 [![Codex CLI](https://img.shields.io/badge/codex%20cli-hooks%20%2B%20commands-10A37F)](https://github.com/openai/codex)
 [![Gemini CLI](https://img.shields.io/badge/gemini%20cli-hooks%20%2B%20commands-4285F4)](https://github.com/google-gemini/gemini-cli)
+[![OpenClaw](https://img.shields.io/badge/openclaw-hooks%20%2B%20commands-6B46C1)](.openclaw/settings.json)
+[![Hermes](https://img.shields.io/badge/hermes-hooks%20%2B%20commands-C0392B)](.hermes/settings.json)
+[![Copilot Cowork](https://img.shields.io/badge/copilot%20cowork-hooks%20%2B%20commands-0078D4)](.cowork/settings.json)
+[![Microsoft Scout](https://img.shields.io/badge/microsoft%20scout-hooks%20%2B%20commands-00B4D8)](.scout/settings.json)
+[![GitHub Copilot](https://img.shields.io/badge/github%20copilot-instructions-24292E)](https://github.com/features/copilot)
+[![Copilot Studio](https://img.shields.io/badge/copilot%20studio-instructions-8764B8)](https://www.microsoft.com/en-us/microsoft-copilot/copilot-studio)
 [![Obsidian](https://img.shields.io/badge/obsidian-1.12%2B-7C3AED)](https://obsidian.md)
 [![Obsidian CLI](https://img.shields.io/badge/obsidian--cli-integrated-E6E6E6)](https://github.com/kepano/obsidian-cli)
 [![Obsidian Skills](https://img.shields.io/badge/obsidian--skills-integrated-8B5CF6)](https://github.com/kepano/obsidian-skills)
@@ -166,10 +172,52 @@ QMD **在本地运行三个小模型**，因此不需要配置 API 密钥，没�
 
 ---
 
+## 🤖 让你的 Agent 来设置
+
+将以下提示词复制粘贴到 vault 目录的新会话中。Agent 将读取仓库、识别其配置、验证接线，并报告缺失的内容。
+
+> [!TIP]
+> 更详细的提示词、各 Agent 对比表和故障排除，请参阅 [`docs/agent-setup.md`](docs/agent-setup.md)（英文）。
+
+### 通用提示词（适用于任意 Agent）
+
+```
+Read AGENTS.md and CLAUDE.md in this vault. Identify which agent you are, find your config file (AGENTS.md lists them all), verify that your hooks are wired to the five scripts in .claude/scripts/, and report what is missing or misconfigured. If a config file for your agent already exists, verify it. If not, explain what would need to be created and what the correct event names are for your agent's hook vocabulary.
+```
+
+### 钩子支持 Agent（Codex、Gemini、OpenClaw、Hermes、Cowork、Scout）
+
+```
+Read AGENTS.md, CLAUDE.md, and your agent's config file (e.g. .codex/hooks.json, .gemini/settings.json, .openclaw/settings.json, .hermes/settings.json, .cowork/settings.json, or .scout/settings.json). Set the environment variable <AGENT>_PROJECT_DIR (e.g. HERMES_PROJECT_DIR, COWORK_PROJECT_DIR) to the absolute path of this vault. Verify that all five hook scripts in .claude/scripts/ resolve from that path: session-start.ts, classify-message.ts, validate-write.ts, pre-compact.ts, stop-checklist.ts. Report any that are missing or have incorrect paths. Note: for Copilot Cowork and Microsoft Scout, hook event names are provisional — check .cowork/COWORK.md or .scout/SCOUT.md for current names and update settings.json if your agent's vocabulary differs.
+```
+
+### GitHub Copilot 系列（VS Code、GitHub App、Copilot CLI）
+
+```
+Read .github/copilot-instructions.md — this is your vault operating guide. For VS Code Copilot, also confirm that .github/instructions/vault.instructions.md is present and will be applied to .md files (it has applyTo: "**/*.md" in its frontmatter). Since Copilot has no hooks API, the hook scripts in .claude/scripts/ must be run manually or wired as VS Code Tasks. To run manually:
+  node --disable-warning=ExperimentalWarning --experimental-strip-types .claude/scripts/session-start.ts
+  node --disable-warning=ExperimentalWarning --experimental-strip-types .claude/scripts/stop-checklist.ts
+Report whether the instructions files are present and summarise the vault conventions you found.
+```
+
+### Copilot Studio
+
+```
+Read .copilot-studio/AGENT.md and .copilot-studio/knowledge-config.md. For vault access, register the om MCP server (.claude/scripts/om-mcp.mjs) rather than ingesting static file snapshots — this gives live search and graph traversal. If direct file ingestion is required, index brain/, org/, work/active/, work/archive/, perf/competencies/, and reference/. Exclude .obsidian/, .claude/, and memories/YYYY/MM/. Report the MCP wiring status and any missing configuration.
+```
+
+### 在另一个仓库中使用此 vault
+
+```
+I want to reach my Obsidian Mind vault from this repository. The vault is at [/absolute/path/to/vault]. Please: (1) register the om MCP server by running: claude mcp add --scope user om node "/absolute/path/to/vault/.claude/scripts/om-mcp.mjs" (2) add a consultation section to this project's CLAUDE.md (or equivalent agent instructions file) following the template in the README's "🧠 Reach Your Vault From Any Repo" section. Both steps are required — the server wired without the repo-side instruction makes zero vault calls.
+```
+
+---
+
 ## 📋 环境要求
 
 - [Obsidian](https://obsidian.md) 1.12+（支持 CLI）
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
+- AI 编码 Agent — **完整支持**：[Claude Code](https://docs.anthropic.com/en/docs/claude-code)；**钩子 + 命令**：[Codex CLI](https://github.com/openai/codex)、[Gemini CLI](https://github.com/google-gemini/gemini-cli)、OpenClaw、Hermes、Copilot Cowork、Microsoft Scout；**仅指令**：[GitHub Copilot](https://github.com/features/copilot) 系列、[Copilot Studio](https://www.microsoft.com/en-us/microsoft-copilot/copilot-studio)
 - [Node 22+ LTS](https://nodejs.org)（用于钩子脚本 — 通常与 Claude Code / Codex / Gemini CLI 一起已安装）
 - Git（用于版本历史）
 - [QMD](https://github.com/tobi/qmd)（可选，用于语义搜索）
@@ -219,18 +267,47 @@ SessionStart 加载**轻量级上下文** — 关键文件的简短摘要、文�
 
 ### 🌐 与其他 Agent 配合使用
 
-obsidian-mind 支持 Claude Code、Codex CLI 和 Gemini CLI。`CLAUDE.md` 中的 vault 规约、`.claude/scripts/` 中的钩子脚本、`.claude/commands/` 中的命令都是 Agent 无关的 — 纯 Markdown、TypeScript 和 Shell，无 SDK 依赖。
+obsidian-mind 支持 11 个 Agent，分为三个层级。`CLAUDE.md` 中的 vault 规约、`.claude/scripts/` 中的钩子脚本、`.claude/commands/` 中的命令都是 Agent 无关的 — 纯 Markdown、TypeScript 和 Shell，无 SDK 依赖。
 
-**Claude Code** — 完整支持。钩子、命令、子代理和记忆系统全部开箱即用。
+#### 层级 1 — 完整支持
 
-**Codex CLI** — 原生读取 `AGENTS.md`。`.codex/hooks.json` 中的钩子配置连接了与 Claude Code 相同的钩子脚本 — 会话上下文、消息分类和写入验证自动工作。
+**Claude Code** — 钩子、命令、子代理和记忆系统全部开箱即用。此 README 中的所有功能均可使用。
 
-**Gemini CLI** — 原生读取 `GEMINI.md`。`.gemini/settings.json` 中的钩子配置将 Gemini 的事件名称映射到共享钩子脚本。
+#### 层级 2 — 钩子 + 命令
 
-**其他 Agent**（Cursor、Windsurf、GitHub Copilot、JetBrains AI）— 通过 `AGENTS.md` 读取 vault 规约。钩子支持因 Agent 而异。
+以下六个 Agent 通过各自的配置文件连接相同的五个钩子脚本：
+
+| Agent | 配置文件 | 原生入口 |
+|-------|---------|---------|
+| **Codex CLI** | `.codex/hooks.json` | `AGENTS.md`（原生读取） |
+| **Gemini CLI** | `.gemini/settings.json` | `GEMINI.md`（原生读取） |
+| **OpenClaw** | `.openclaw/settings.json` | `.openclaw/OPENCLAW.md` |
+| **Hermes** | `.hermes/settings.json` | `.hermes/HERMES.md` |
+| **Copilot Cowork** | `.cowork/settings.json` | `.cowork/COWORK.md` |
+| **Microsoft Scout** | `.scout/settings.json` | `.scout/SCOUT.md` |
+
+命令在大多数 Agent 中以斜杠命令（`/om-standup`）形式使用。在 Codex CLI 和 Hermes 中，以不带 `/` 的普通提示词（如 `om-standup`）输入。
 
 > [!NOTE]
-> 钩子、命令、子代理提示和 vault 记忆（`brain/`）都是 Agent 无关的。只有 `~/.claude/` 自动记忆加载器是 Claude Code 专属功能。详见 `AGENTS.md`。
+> **Copilot Cowork** 和 **Microsoft Scout** 的事件名称为**暂定** — 在这些 Agent 发布完整钩子词汇表之前，借用了 Claude Code 的词汇。详见 [`docs/agent-setup.md`](docs/agent-setup.md)。
+
+#### 层级 3 — 仅指令（无钩子 API）
+
+| Agent | 配置 / 入口 |
+|-------|-----------|
+| **VS Code Copilot** | `.github/copilot-instructions.md` + `.github/instructions/vault.instructions.md`（自动应用于 `.md` 文件） |
+| **GitHub App / Copilot cloud agent** | `.github/copilot-instructions.md` |
+| **GitHub Copilot CLI** | `.github/copilot-instructions.md` |
+| **Microsoft Copilot Studio** | `.copilot-studio/AGENT.md` |
+
+可以为这些 Agent 手动运行钩子脚本：
+```
+node --disable-warning=ExperimentalWarning --experimental-strip-types .claude/scripts/<script>.ts
+```
+也可以配置为 VS Code Tasks。
+
+> [!NOTE]
+> 完整的可移植性矩阵和各 Agent 的设置说明见 `AGENTS.md`。复制粘贴的设置提示词和故障排除见 [`docs/agent-setup.md`](docs/agent-setup.md)。
 
 ---
 
@@ -495,7 +572,7 @@ templates/              带有 YAML frontmatter 的 Obsidian 模板
 把这个 vault 更新到最新的 obsidian-mind https://github.com/breferrari/obsidian-mind
 ```
 
-Agent 会拉取最新更改、解决冲突并更新基础设施文件。Claude Code、Codex CLI 和 Gemini CLI 均可使用。
+Agent 会拉取最新更改、解决冲突并更新基础设施文件。所有支持的 Agent 均可使用。
 
 ### 更新已有克隆
 
@@ -506,7 +583,7 @@ cd your-vault
 git pull origin main
 ```
 
-新文件（`AGENTS.md`、`GEMINI.md`、`.codex/`、`.gemini/`）会自动出现，钩子脚本也会就地更新。
+新文件（`AGENTS.md`、`GEMINI.md`、`.codex/`、`.gemini/`、`.openclaw/`、`.hermes/`、`.cowork/`、`.scout/`、`.github/copilot-instructions.md`、`.copilot-studio/`）会自动出现，钩子脚本也会就地更新。
 
 ### 更新 Fork
 
@@ -518,7 +595,7 @@ git fetch upstream
 git merge upstream/main
 ```
 
-解决你自定义过的文件的冲突（通常是 `CLAUDE.md`、`brain/` 笔记）。基础设施文件（`.claude/scripts/`、`.codex/`、`.gemini/`）应该可以干净合并。
+解决你自定义过的文件的冲突（通常是 `CLAUDE.md`、`brain/` 笔记）。基础设施文件（`.claude/scripts/`、`.codex/`、`.gemini/`、`.openclaw/`、`.hermes/`、`.cowork/`、`.scout/`）应该可以干净合并。
 
 ### 将已有克隆收编到 ShardMind（v5.x → v6）
 

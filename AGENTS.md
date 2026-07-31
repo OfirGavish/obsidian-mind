@@ -84,4 +84,4 @@ node --disable-warning=ExperimentalWarning --experimental-strip-types .claude/sc
 
 **Other agents** (Cursor, Windsurf): Read `AGENTS.md` for vault conventions. Hook support varies by agent.
 
-For more information, see the [README](README.md).
+For more information, see the [README](README.md). For copy-paste setup prompts, a per-agent comparison table, and troubleshooting, see [`docs/agent-setup.md`](docs/agent-setup.md).
