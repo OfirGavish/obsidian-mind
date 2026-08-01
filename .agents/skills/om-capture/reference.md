@@ -2,7 +2,7 @@
 
 Lookup table for proactive capture. Search first, then update the canonical destination instead of creating duplicates.
 
-> Keep this file in sync with the `.claude/skills/om-capture/` ports in `.openclaw/skills/om-capture/`, `.hermes/skills/om-capture/`, `.agents/skills/om-capture/`, `.gemini/skills/om-capture/`, `.cowork/skills/om-capture/`, and `.scout/skills/om-capture/`.
+> Keep this file in sync with `.claude/skills/om-capture/reference.md`.
 
 | Signal / situation | Destination | Template / structure | Notes |
 |---|---|---|---|

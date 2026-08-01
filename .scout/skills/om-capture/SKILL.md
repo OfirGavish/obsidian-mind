@@ -5,9 +5,19 @@ description: Proactively spot durable knowledge mid-conversation, ask before wri
 
 # Vault Auto-Capture Skill
 
-Use this skill when the conversation surfaces durable knowledge that would help a future session with no memory of the current chat. Build on the existing classification vocabulary from `classify-message.ts` — decision, incident, 1:1 content, win, architecture, person context, project update — rather than inventing a parallel taxonomy.
+> [!note] Provisional ¹
+> The discovery path (`.scout/skills/`) and skill frontmatter schema are best-effort because Microsoft Scout does not publish a dedicated skill discovery convention at the time of writing. If your version expects a different path or schema, adapt this file but keep the prompt body aligned with `.claude/skills/om-capture/SKILL.md`.
 
-> Keep this file in sync with `.claude/skills/om-capture/` ports in `.openclaw/skills/om-capture/`, `.hermes/skills/om-capture/`, `.github/chatmodes/om-capture.chatmode.md`, `.agents/skills/om-capture/`, `.gemini/skills/om-capture/`, `.cowork/skills/om-capture/`, and `.scout/skills/om-capture/`.
+> Keep this file in sync with `.claude/skills/om-capture/SKILL.md`.
+
+> [!warning] **Scout's research output is ephemeral.**
+> Everything Scout discovers — visited pages, intermediate conclusions, browsed content — is lost when the session ends. Scout has no `stop-checklist.ts` nudge at session end. This skill is the primary mechanism for saving Scout's research into the vault's long-term memory.
+>
+> **Capture aggressively here.** A finding that isn't written to `brain/` before the session ends is gone. Apply the durability test, but when in doubt, capture.
+>
+> See `.scout/SCOUT.md` for the full guidance on promoting research findings.
+
+Use this skill when the conversation surfaces durable knowledge that would help a future session with no memory of the current chat. Build on the existing classification vocabulary from `classify-message.ts` — decision, incident, 1:1 content, win, architecture, person context, project update — rather than inventing a parallel taxonomy.
 
 ## Goal
 
@@ -260,3 +270,4 @@ Resulting section:
 ````markdown
 - Documented multi-agent parity work across OpenClaw, Hermes, and VS Code Copilot, including the manual-lifecycle tradeoff for Copilot. Evidence: [[AGENTS]], [[Skills]].
 ````
+

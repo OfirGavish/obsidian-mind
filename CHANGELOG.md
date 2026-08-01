@@ -16,7 +16,22 @@
 
 
 
-## v8.3.1 — 2026-07-31
+## v8.7.0 — 2026-08-01
+
+### Added
+- `om-capture` skill ported to all remaining agents: Codex (`.agents/skills/om-capture/`), Gemini (`.gemini/skills/om-capture/`), Cowork (`.cowork/skills/om-capture/`), Scout (`.scout/skills/om-capture/`)
+- `## Proactive Capture` section in `.copilot-studio/AGENT.md` (instructions-only agent)
+- `verify-ports.ts` drift detection script in `.claude/scripts/` — exits non-zero when a port's body diverges from its canonical `.claude/` source
+- `verify-ports.test.ts` unit tests for the drift detection logic
+
+### Changed
+- Folded `## Follow-up for shared docs` scaffolding section from `.claude/skills/om-capture/SKILL.md`
+- `AGENTS.md` / `GEMINI.md`: added Skills and Maintenance Utilities sections documenting `om-capture` ports and `verify-ports.ts`
+- `README.md`: added Proactive Capture section describing the skill's confirm-before-write default
+- `docs/agent-setup.md`: added `om-capture` port table and `verify-ports.ts` note
+- `vault-manifest.json`: added `.agents/**` to infrastructure array
+
+
 
 ### Fixed
 - health reports promotions that name a note but serve nothing
