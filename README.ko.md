@@ -16,7 +16,7 @@
 [![Hermes](https://img.shields.io/badge/hermes-hooks%20%2B%20commands-C0392B)](.hermes/settings.json)
 [![Copilot Cowork](https://img.shields.io/badge/copilot%20cowork-hooks%20%2B%20commands-0078D4)](.cowork/settings.json)
 [![Microsoft Scout](https://img.shields.io/badge/microsoft%20scout-hooks%20%2B%20commands-00B4D8)](.scout/settings.json)
-[![GitHub Copilot](https://img.shields.io/badge/github%20copilot-instructions-24292E)](https://github.com/features/copilot)
+[![VS Code Copilot](https://img.shields.io/badge/vs%20code%20copilot-near--full%20(manual)-24292E)](https://github.com/features/copilot)
 [![Copilot Studio](https://img.shields.io/badge/copilot%20studio-instructions-8764B8)](https://www.microsoft.com/en-us/microsoft-copilot/copilot-studio)
 [![Obsidian](https://img.shields.io/badge/obsidian-1.12%2B-7C3AED)](https://obsidian.md)
 [![Obsidian CLI](https://img.shields.io/badge/obsidian--cli-integrated-E6E6E6)](https://github.com/kepano/obsidian-cli)
@@ -191,13 +191,16 @@ Read AGENTS.md and CLAUDE.md in this vault. Identify which agent you are, find y
 Read AGENTS.md, CLAUDE.md, and your agent's config file (e.g. .codex/hooks.json, .gemini/settings.json, .openclaw/settings.json, .hermes/settings.json, .cowork/settings.json, or .scout/settings.json). Set the environment variable <AGENT>_PROJECT_DIR (e.g. HERMES_PROJECT_DIR, COWORK_PROJECT_DIR) to the absolute path of this vault. Verify that all five hook scripts in .claude/scripts/ resolve from that path: session-start.ts, classify-message.ts, validate-write.ts, pre-compact.ts, stop-checklist.ts. Report any that are missing or have incorrect paths. Note: for Copilot Cowork and Microsoft Scout, hook event names are provisional — check .cowork/COWORK.md or .scout/SCOUT.md for current names and update settings.json if your agent's vocabulary differs.
 ```
 
-### GitHub Copilot 계열 (VS Code, GitHub App, Copilot CLI)
+### VS Code Copilot
 
 ```
-Read .github/copilot-instructions.md — this is your vault operating guide. For VS Code Copilot, also confirm that .github/instructions/vault.instructions.md is present and will be applied to .md files (it has applyTo: "**/*.md" in its frontmatter). Since Copilot has no hooks API, the hook scripts in .claude/scripts/ must be run manually or wired as VS Code Tasks. To run manually:
-  node --disable-warning=ExperimentalWarning --experimental-strip-types .claude/scripts/session-start.ts
-  node --disable-warning=ExperimentalWarning --experimental-strip-types .claude/scripts/stop-checklist.ts
-Report whether the instructions files are present and summarise the vault conventions you found.
+Read .github/copilot-instructions.md — this is your vault operating guide. Also confirm that .github/instructions/vault.instructions.md is present and will be applied to .md files. Verify: (1) .github/prompts/ contains om-*.prompt.md files appearing as /om-standup etc. in Copilot Chat; (2) .github/chatmodes/ contains *.chatmode.md files in the Chat mode picker; (3) .vscode/tasks.json is present with an "om: session start" task that has runOn: "folderOpen". Since there is no hooks API, run scripts manually: node --disable-warning=ExperimentalWarning --experimental-strip-types .claude/scripts/session-start.ts
+```
+
+### GitHub App / Copilot cloud agent, GitHub Copilot CLI
+
+```
+Read .github/copilot-instructions.md — this is your vault operating guide. There is no hooks API; the hook scripts in .claude/scripts/ must be run manually. To run: node --disable-warning=ExperimentalWarning --experimental-strip-types .claude/scripts/session-start.ts
 ```
 
 ### Copilot Studio
@@ -217,7 +220,7 @@ I want to reach my Obsidian Mind vault from this repository. The vault is at [/a
 ## 📋 요구 사항
 
 - [Obsidian](https://obsidian.md) 1.12+ (CLI 지원)
-- AI 코딩 에이전트 — **완전 지원**: [Claude Code](https://docs.anthropic.com/en/docs/claude-code)；**훅 + 커맨드**: [Codex CLI](https://github.com/openai/codex)、[Gemini CLI](https://github.com/google-gemini/gemini-cli)、OpenClaw、Hermes、Copilot Cowork、Microsoft Scout；**지침만**: [GitHub Copilot](https://github.com/features/copilot) 계열、[Copilot Studio](https://www.microsoft.com/en-us/microsoft-copilot/copilot-studio)
+- AI 코딩 에이전트 — **완전 지원**: [Claude Code](https://docs.anthropic.com/en/docs/claude-code)；**훅 + 커맨드 + 서브에이전트**: [Codex CLI](https://github.com/openai/codex)、[Gemini CLI](https://github.com/google-gemini/gemini-cli)、OpenClaw、Hermes、Copilot Cowork、Microsoft Scout；**근사 완전 지원 (수동 생명주기)**: VS Code Copilot；**지침만**: [GitHub Copilot](https://github.com/features/copilot) App / CLI、[Copilot Studio](https://www.microsoft.com/en-us/microsoft-copilot/copilot-studio)
 - [Node 22+ LTS](https://nodejs.org) (훅 스크립트용 — Claude Code / Codex / Gemini CLI와 함께 이미 설치되어 있을 가능성이 큽니다)
 - Git (버전 히스토리용)
 - [QMD](https://github.com/tobi/qmd) (선택 사항, 시맨틱 검색용)
@@ -267,13 +270,17 @@ SessionStart는 **가벼운 컨텍스트**를 로드합니다 — 주요 파일�
 
 ### 🌐 다른 에이전트와 사용하기
 
-obsidian-mind는 3개 계층에서 11개의 에이전트를 지원합니다. `CLAUDE.md`의 볼트 규약, `.claude/scripts/`의 훅 스크립트, `.claude/commands/`의 커맨드는 모두 에이전트 비의존적입니다 — 순수 Markdown, TypeScript, 셸이며 SDK 의존성이 없습니다.
+obsidian-mind는 4개 계층에서 11개의 에이전트를 지원합니다. `CLAUDE.md`의 볼트 규약, `.claude/scripts/`의 훅 스크립트, `.claude/commands/`의 커맨드는 모두 에이전트 비의존적입니다 — 순수 Markdown, TypeScript, 셸이며 SDK 의존성이 없습니다.
 
 #### 계층 1 — 완전 지원
 
 **Claude Code** — 훅, 커맨드, 서브에이전트, 메모리 시스템이 모두 기본으로 작동합니다. 이 README의 모든 기능을 사용할 수 있습니다.
 
-#### 계층 2 — 훅 + 커맨드
+#### 계층 2 — 근사 완전 지원 (수동 생명주기)
+
+**VS Code Copilot** — `.github/prompts/`의 프롬프트 파일이 진정한 `/om-*` 슬래시 호출을 제공；`.github/chatmodes/`의 채팅 모드가 서브에이전트의 동등물로 기능 (호출한 대화와 동일한 컨텍스트 창에서 실행)；VS Code Tasks가 훅 스크립트를 수동으로 연결. 생명주기 훅은 자동으로 발생하지 않습니다 — VS Code 명령 팔레트나 Tasks를 통해 실행하세요. 자세한 내용은 `.github/copilot-instructions.md`를 참조하세요.
+
+#### 계층 3 — 훅 + 커맨드
 
 아래 6개 에이전트는 각자의 설정 파일을 통해 동일한 5개 훅 스크립트를 연결합니다:
 
@@ -291,11 +298,10 @@ obsidian-mind는 3개 계층에서 11개의 에이전트를 지원합니다. `CL
 > [!NOTE]
 > **Copilot Cowork** 와 **Microsoft Scout** 의 이벤트 이름은 **잠정적** 입니다 — 해당 에이전트들이 전체 훅 어휘집을 공개할 때까지 Claude Code의 어휘를 차용했습니다. 자세한 내용은 [`docs/agent-setup.md`](docs/agent-setup.md) 를 참조하세요.
 
-#### 계층 3 — 지침만 (훅 API 없음)
+#### 계층 4 — 지침만 (훅 API 없음)
 
 | 에이전트 | 설정 / 진입점 |
 |---------|------------|
-| **VS Code Copilot** | `.github/copilot-instructions.md` + `.github/instructions/vault.instructions.md` (`.md` 파일에 자동 적용) |
 | **GitHub App / Copilot cloud agent** | `.github/copilot-instructions.md` |
 | **GitHub Copilot CLI** | `.github/copilot-instructions.md` |
 | **Microsoft Copilot Studio** | `.copilot-studio/AGENT.md` |

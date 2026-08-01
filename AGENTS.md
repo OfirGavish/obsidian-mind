@@ -22,7 +22,7 @@ The hook scripts in `.claude/scripts/` are agent-agnostic TypeScript and shell, 
 | Gemini CLI | `.gemini/settings.json` | Hooks + commands |
 | OpenClaw | `.openclaw/settings.json` | Hooks + commands ² |
 | Hermes | `.hermes/settings.json` | Hooks + commands ² |
-| VS Code Copilot | `.github/copilot-instructions.md` | Near-full (manual lifecycle) |
+| VS Code Copilot | `.github/copilot-instructions.md`, `.github/prompts/`, `.github/chatmodes/`, `.vscode/tasks.json` | Near-full (manual lifecycle) |
 | GitHub App / Copilot cloud agent | `.github/copilot-instructions.md` | Instructions only |
 | GitHub Copilot CLI | `.github/copilot-instructions.md` | Instructions only |
 | Copilot Cowork | `.cowork/settings.json` | Hooks + commands |
@@ -49,7 +49,8 @@ The canonical source of commands is `.claude/commands/` — agent-agnostic markd
 - **OpenClaw**: invoke as `/om-standup`, `/om-dump`, etc. Native command files are in `.openclaw/commands/`. ²
 - **Codex CLI**: type the command name as a regular prompt without the `/` prefix (e.g. `om-standup`). The agent will find and execute the command file.
 - **Hermes**: type the command name as a regular prompt without the `/` prefix (e.g. `om-standup`). Native command files are in `.hermes/commands/`. ²
-- **Copilot-family agents** (VS Code Copilot, GitHub App, Copilot CLI): commands are not auto-invoked; read `brain/Skills.md` for the catalog and run scripts manually.
+- **VS Code Copilot**: real `/om-*` slash invocation via prompt files in `.github/prompts/`. Invoke as `/om-standup`, `/om-dump`, etc. directly in Copilot Chat.
+- **GitHub App / Copilot cloud agent, GitHub Copilot CLI**: commands are not auto-invoked; read `brain/Skills.md` for the catalog and run scripts manually.
 
 The `.openclaw/commands/` and `.hermes/commands/` directories mirror `.claude/commands/` verbatim (OpenClaw) and with slash-prefix removed from Usage sections (Hermes). These must be kept in sync with `.claude/commands/` manually — see `.openclaw/OPENCLAW.md` and `.hermes/HERMES.md` for the sync procedure.
 
@@ -76,7 +77,7 @@ The canonical source of subagents is `.claude/agents/` — 9 subagent definition
 - **Gemini CLI**: agents live in `.gemini/agents/`. Copy the files and adapt the YAML frontmatter fields to Gemini's schema.
 - **OpenClaw**: native subagent files are in `.openclaw/agents/`, mirroring `.claude/agents/` with the same frontmatter schema. ² Discovery path and schema are provisional — verify against your agent version.
 - **Hermes**: native subagent files are in `.hermes/agents/`, mirroring `.claude/agents/` with the same frontmatter schema. ² Discovery path and schema are provisional — verify against your agent version.
-- **VS Code Copilot**: chat modes in `.github/chatmodes/` approximate subagents. See `.github/copilot-instructions.md` for details. Do not create or modify files in `.github/` from this session.
+- **VS Code Copilot**: chat modes in `.github/chatmodes/` are the subagent equivalents. **Important behavioural difference**: chat modes run in the **same context window** as the calling conversation, unlike Claude Code subagents which run in isolated context windows. They share conversation history and are coordinated sequentially rather than in parallel. See `.github/copilot-instructions.md` for details.
 - **Copilot-family (GitHub App, Copilot CLI), Copilot Studio**: no native subagent invocation. The prompt content in `.claude/agents/` is readable and can be invoked manually.
 
 ## What's Claude Code-specific
@@ -99,7 +100,12 @@ project_doc_fallback_filenames = ["CLAUDE.md"]
 
 **Hermes**: Hooks are configured in `.hermes/settings.json` using the shared scripts. Commands are in `.hermes/commands/` (bare-name invocation, e.g. `om-standup` without the `/` prefix). Subagents are in `.hermes/agents/`. Read `.hermes/HERMES.md` for vault conventions, command catalog, and sync instructions. Read `CLAUDE.md` for full vault details. Note: Hermes's internal skill memory is session-level only — durable learnings must be written to `brain/` topic notes. Command and subagent discovery paths are provisional — verify against your Hermes version's documentation.
 
-**Copilot-family agents** (VS Code Copilot, GitHub App / Copilot cloud agent, GitHub Copilot CLI): Read `.github/copilot-instructions.md` for vault conventions. VS Code Copilot also auto-applies `.github/instructions/vault.instructions.md` to every `.md` file. There is no hooks API; run scripts in `.claude/scripts/` manually or via VS Code Tasks:
+**VS Code Copilot**: Read `.github/copilot-instructions.md` for vault conventions. Also auto-applies `.github/instructions/vault.instructions.md` to every `.md` file. Prompt files in `.github/prompts/` provide real `/om-*` slash invocation in Copilot Chat — invoke as `/om-standup`, `/om-dump`, etc. Chat modes in `.github/chatmodes/` are subagent-equivalent personas (switch in the Chat mode picker; note they run in the same context window, not in isolation). VS Code Tasks in `.vscode/tasks.json` wire each hook script to the command palette. The `om: session start` task has `runOn: folderOpen` and runs automatically when the vault folder opens in VS Code — to disable it, use **Terminal → Manage Automatic Tasks in Folder**. There is no hooks API; all other hook scripts (write validation, classify-message, pre-compact, stop-checklist) must be triggered manually via Tasks or the command line:
+```
+node --disable-warning=ExperimentalWarning --experimental-strip-types .claude/scripts/<script>.ts
+```
+
+**GitHub App / Copilot cloud agent, GitHub Copilot CLI**: Read `.github/copilot-instructions.md` for vault conventions. There is no hooks API; run scripts in `.claude/scripts/` manually or wire them as VS Code Tasks:
 ```
 node --disable-warning=ExperimentalWarning --experimental-strip-types .claude/scripts/<script>.ts
 ```
