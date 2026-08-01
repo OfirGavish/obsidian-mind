@@ -1,0 +1,73 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "om: session start",
+      "type": "shell",
+      "command": "node --disable-warning=ExperimentalWarning --experimental-strip-types .claude/scripts/session-start.ts",
+      "group": "none",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "showReuseMessage": false,
+        "clear": true
+      },
+      "runOptions": {
+        "runOn": "folderOpen"
+      },
+      "detail": "Inject vault context (North Star, active work, recent changes, open tasks, hygiene flags). Runs automatically on folder open — disable in Tasks: Manage Automatic Tasks if not wanted."
+    },
+    {
+      "label": "om: validate write",
+      "type": "shell",
+      "command": "node --disable-warning=ExperimentalWarning --experimental-strip-types .claude/scripts/validate-write.ts",
+      "group": "none",
+      "presentation": {
+        "reveal": "silent",
+        "panel": "shared",
+        "showReuseMessage": false,
+        "clear": false
+      },
+      "detail": "Validate frontmatter and wikilinks after writing a .md file. Run this after Copilot creates or edits a note to catch missing required fields."
+    },
+    {
+      "label": "om: classify message",
+      "type": "shell",
+      "command": "node --disable-warning=ExperimentalWarning --experimental-strip-types .claude/scripts/classify-message.ts",
+      "group": "none",
+      "presentation": {
+        "reveal": "silent",
+        "panel": "shared",
+        "showReuseMessage": false,
+        "clear": false
+      },
+      "detail": "Classify the current message and inject routing hints (decision, incident, win, 1:1, architecture, person, project update)."
+    },
+    {
+      "label": "om: pre-compact",
+      "type": "shell",
+      "command": "node --disable-warning=ExperimentalWarning --experimental-strip-types .claude/scripts/pre-compact.ts",
+      "group": "none",
+      "presentation": {
+        "reveal": "silent",
+        "panel": "shared",
+        "showReuseMessage": false,
+        "clear": false
+      },
+      "detail": "Back up session transcript to thinking/session-logs/ before context compaction."
+    },
+    {
+      "label": "om: stop checklist",
+      "type": "shell",
+      "command": "node --disable-warning=ExperimentalWarning --experimental-strip-types .claude/scripts/stop-checklist.ts",
+      "group": "none",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "showReuseMessage": false,
+        "clear": true
+      },
+      "detail": "End-of-session hygiene checklist: archive completed work, verify note quality, surface open loops."
+    }
+  ]
+}

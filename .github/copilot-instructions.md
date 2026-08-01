@@ -117,9 +117,81 @@ Place new notes in the correct folder:
 
 ---
 
-## Hooks Note
+## VS Code Copilot: Prompt Files, Chat Modes, and Tasks
 
-**Copilot has no lifecycle hooks API.** The scripts in `.claude/scripts/` can be run manually or wired via VS Code Tasks:
+VS Code Copilot has no lifecycle hooks API — scripts cannot fire automatically the way they do for Claude Code. However, three mechanisms recover most of the practical capability:
+
+> **Schema note (as of 2025):** The `mode`, `description`, and `tools` frontmatter fields in `.github/prompts/*.prompt.md` and `.github/chatmodes/*.chatmode.md` are based on VS Code 1.9x documentation. Verify against [VS Code Copilot customization docs](https://code.visualstudio.com/docs/copilot/copilot-customization) if fields are not recognized — the schema has evolved and these docs may have drifted.
+
+### 1. Prompt Files — `/om-*` Commands
+
+Prompt files live in `.github/prompts/*.prompt.md` and provide real `/name` slash invocation in Copilot Chat. Invoke them by typing `/om-standup`, `/om-dump`, etc. in the Chat panel.
+
+Available prompts (ported from `.claude/commands/`):
+
+| Prompt | Invocation | Purpose |
+|--------|-----------|---------|
+| `om-standup.prompt.md` | `/om-standup` | Morning kickoff — vault context, active work, priorities |
+| `om-dump.prompt.md` | `/om-dump` | Freeform capture — routes anything to the right vault notes |
+| `om-weekly.prompt.md` | `/om-weekly` | Weekly synthesis across sessions |
+| `om-wrap-up.prompt.md` | `/om-wrap-up` | Full session review before ending |
+| `om-tidy.prompt.md` | `/om-tidy` | Self-maintenance pass — acts on hygiene flags |
+| `om-vault-audit.prompt.md` | `/om-vault-audit` | Deep structural audit of the vault |
+| `om-capture-1on1.prompt.md` | `/om-capture-1on1` | Capture a 1:1 meeting into vault notes |
+| `om-humanize.prompt.md` | `/om-humanize` | Voice-calibrate AI-drafted text |
+| `om-incident-capture.prompt.md` | `/om-incident-capture` | Capture an incident from Slack |
+| `om-intake.prompt.md` | `/om-intake` | Process meeting inbox (`work/meetings/`) |
+| `om-meeting.prompt.md` | `/om-meeting` | Prep for any meeting by topic |
+| `om-peer-scan.prompt.md` | `/om-peer-scan` | Deep scan a peer's GitHub PRs |
+| `om-prep-1on1.prompt.md` | `/om-prep-1on1` | Prep for an upcoming 1:1 |
+| `om-project-archive.prompt.md` | `/om-project-archive` | Archive a completed project |
+| `om-review-brief.prompt.md` | `/om-review-brief` | Generate a performance review brief |
+| `om-review-peer.prompt.md` | `/om-review-peer` | Write a peer review |
+| `om-self-review.prompt.md` | `/om-self-review` | Write your self-assessment |
+| `om-slack-scan.prompt.md` | `/om-slack-scan` | Deep scan Slack for evidence |
+| `om-vault-upgrade.prompt.md` | `/om-vault-upgrade` | Migrate content from another Obsidian vault |
+
+**Sync caveat:** These prompt files are ports of `.claude/commands/`. When the canonical commands in `.claude/commands/` change, the corresponding `.github/prompts/` files must be updated to match. The `.claude/commands/` files are always the source of truth.
+
+### 2. Chat Modes — Subagent Equivalents
+
+Chat modes live in `.github/chatmodes/*.chatmode.md` and are the closest VS Code Copilot analogue to Claude Code subagents. Switch to a chat mode in the Copilot Chat mode picker (the dropdown at the top of the Chat panel).
+
+**Important behavioral difference:** Claude Code subagents run in isolated context windows. VS Code Copilot chat modes run in the **same context window** as the calling conversation. They share conversation history and are coordinated sequentially rather than in parallel. Commands that reference subagents (e.g., `/om-wrap-up` → `brag-spotter`) should switch modes manually.
+
+Available chat modes (ported from `.claude/agents/`):
+
+| Chat Mode | Purpose |
+|-----------|---------|
+| `brag-spotter` | Find uncaptured wins and competency gaps in the brag doc |
+| `context-loader` | Load all vault context about a person, project, or concept |
+| `cross-linker` | Find missing wikilinks and strengthen the vault graph |
+| `people-profiler` | Bulk create or update person notes from Slack profiles |
+| `review-fact-checker` | Verify every claim in a review draft against vault sources |
+| `review-prep` | Aggregate performance review material for a given period |
+| `slack-archaeologist` | Deep reconstruction of Slack conversations |
+| `vault-librarian` | Vault maintenance: orphans, broken links, frontmatter validation |
+| `vault-migrator` | Classify and migrate content from another Obsidian vault |
+
+### 3. VS Code Tasks — Hook Script Execution
+
+The `.vscode/tasks.json` wires each hook script as a VS Code Task. Run via **Terminal → Run Task** or **Ctrl+Shift+P → Tasks: Run Task**.
+
+| Task Label | Script | When to Run |
+|-----------|--------|-------------|
+| `om: session start` | `session-start.ts` | **Runs automatically on folder open** (see note below). Also run manually at the start of a session. |
+| `om: validate write` | `validate-write.ts` | After Copilot creates or edits a `.md` file — validates frontmatter and wikilinks |
+| `om: classify message` | `classify-message.ts` | Before submitting a message — classifies content and injects routing hints |
+| `om: pre-compact` | `pre-compact.ts` | Before clearing context — backs up transcript to `thinking/session-logs/` |
+| `om: stop checklist` | `stop-checklist.ts` | At the end of a session — hygiene checklist |
+
+**Folder-open auto-task:** `om: session start` has `runOn: "folderOpen"` set, so it runs automatically when you open the vault folder in VS Code. This approximates the `SessionStart` hook. If you don't want this automatic behaviour, disable it via **Terminal → Manage Automatic Tasks in Folder** (or `Tasks: Manage Automatic Tasks` in the Command Palette).
+
+**Honest framing:** Hooks are **one keystroke instead of automatic**. Write validation (`om: validate write`) does NOT fire silently after every note edit — you must run it manually. A user who believes frontmatter is being validated when it is not is worse off than one who knows to run the task.
+
+### Hooks Note
+
+**Copilot has no lifecycle hooks API.** The scripts in `.claude/scripts/` can be run manually or via the VS Code Tasks above:
 
 ```
 node --disable-warning=ExperimentalWarning --experimental-strip-types .claude/scripts/<script>.ts
@@ -132,8 +204,6 @@ node --disable-warning=ExperimentalWarning --experimental-strip-types .claude/sc
 | `validate-write.ts` | Validate frontmatter and wikilinks after writing a `.md` file |
 | `pre-compact.ts` | Back up transcript before compaction |
 | `stop-checklist.ts` | End-of-session hygiene checklist |
-
-To wire these as VS Code Tasks, add a `.vscode/tasks.json` in the vault root and configure each script as a shell task.
 
 ---
 
@@ -172,3 +242,32 @@ Register `.claude/scripts/om-mcp.mjs` in the consuming project's `.mcp.json`:
 - **Preserve existing frontmatter** when editing notes.
 - **Use `git mv`**, never delete, when reorganizing notes. Zero data loss.
 - **Size rule**: when a note approaches ~25 KB, split it into atomic notes — never trim content to meet a size target.
+
+---
+
+## Follow-up for AGENTS.md
+
+The following notes are for the parallel session that owns `AGENTS.md`. This section is scaffolding — fold it in and remove it once the shared docs are updated.
+
+### Tier classification
+
+VS Code Copilot now reaches **Near-full (manual lifecycle)**:
+- Prompt files provide real `/om-*` slash invocation (command parity with Claude Code)
+- Chat modes provide subagent-equivalent specialised personas (same context window, not isolated)
+- VS Code Tasks provide one-click hook execution with a folder-open auto-task for `session-start`
+- What remains manual: write validation, classify-message, pre-compact, stop-checklist all require a task run rather than firing automatically
+
+### Table updates (AGENTS.md)
+
+The agent setup table should update VS Code Copilot's entry to reflect:
+- Config: `.github/copilot-instructions.md`, `.github/prompts/`, `.github/chatmodes/`, `.vscode/tasks.json`
+- Status/Tier: Near-full (manual lifecycle) — hooks are one keystroke, not automatic
+- Commands: Real `/om-*` invocation via prompt files
+- Subagents: Chat modes (same context window, not isolated subagent sessions)
+
+### Vault structure table
+
+Add rows for:
+- `.github/prompts/` | Copilot prompt files — one per `om-*` command, real `/name` invocation in Chat | Keep in sync with `.claude/commands/`
+- `.github/chatmodes/` | Copilot chat modes — subagent-equivalent personas | Keep in sync with `.claude/agents/`
+- `.vscode/tasks.json` | VS Code Tasks for hook script execution + folder-open auto-task | —
