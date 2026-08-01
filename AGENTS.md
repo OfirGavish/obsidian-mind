@@ -68,6 +68,8 @@ Register it in the *consuming* project's MCP config, pointing at this vault's ab
 
 Do not register the raw `qmd` server in a consuming repo — it searches every note directly, so the repo matches against memories written for unrelated projects. Applying each memory's declared scope on top of the index is what `om` adds. Full details in `CLAUDE.md`.
 
+For a step-by-step wiring guide — registration, the repo-side instruction template, per-agent setup, and memory-scoping guidance — see [`docs/mcp-integration.md`](docs/mcp-integration.md).
+
 ## Subagents
 
 The canonical source of subagents is `.claude/agents/` — 9 subagent definitions handling isolated tasks (brag spotting, vault auditing, cross-linking, etc.). The prompt content is agent-agnostic markdown.
