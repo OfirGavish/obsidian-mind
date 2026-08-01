@@ -9,8 +9,8 @@
 [![Claude Code](https://img.shields.io/badge/claude%20code-full%20support-D97706)](https://docs.anthropic.com/en/docs/claude-code)
 [![Codex CLI](https://img.shields.io/badge/codex%20cli-hooks%20%2B%20commands-10A37F)](https://github.com/openai/codex)
 [![Gemini CLI](https://img.shields.io/badge/gemini%20cli-hooks%20%2B%20commands-4285F4)](https://github.com/google-gemini/gemini-cli)
-[![OpenClaw](https://img.shields.io/badge/openclaw-hooks%20%2B%20commands-6B46C1)](.openclaw/settings.json)
-[![Hermes](https://img.shields.io/badge/hermes-hooks%20%2B%20commands-C0392B)](.hermes/settings.json)
+[![OpenClaw](https://img.shields.io/badge/openclaw-hooks%20%2B%20commands%20%2B%20subagents-6B46C1)](.openclaw/settings.json)
+[![Hermes](https://img.shields.io/badge/hermes-hooks%20%2B%20commands%20%2B%20subagents-C0392B)](.hermes/settings.json)
 [![Copilot Cowork](https://img.shields.io/badge/copilot%20cowork-hooks%20%2B%20commands-0078D4)](.cowork/settings.json)
 [![Microsoft Scout](https://img.shields.io/badge/microsoft%20scout-hooks%20%2B%20commands-00B4D8)](.scout/settings.json)
 [![GitHub Copilot](https://img.shields.io/badge/github%20copilot-instructions-24292E)](https://github.com/features/copilot)
@@ -22,7 +22,7 @@
 [![Node](https://img.shields.io/badge/node-22%2B-339933)](https://nodejs.org)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-> **An Obsidian vault that gives AI coding agents persistent memory.** Full support for Claude Code; hooks + commands for Codex CLI, Gemini CLI, OpenClaw, Hermes, Copilot Cowork, and Microsoft Scout; instructions-only support for the GitHub Copilot family and Copilot Studio. Start a session, talk about your day, and the agent handles the rest — notes, links, indexes, performance tracking. Every conversation builds on the last.
+> **An Obsidian vault that gives AI coding agents persistent memory.** Full support for Claude Code; hooks, commands, and subagents for Codex CLI, Gemini CLI, OpenClaw, Hermes, Copilot Cowork, and Microsoft Scout; near-full (manual lifecycle) for VS Code Copilot; instructions-only support for the GitHub Copilot family and Copilot Studio. Start a session, talk about your day, and the agent handles the rest — notes, links, indexes, performance tracking. Every conversation builds on the last.
 
 ---
 
@@ -42,7 +42,7 @@ Agent: "You're working on Project Alpha, blocked on the BE contract.
         with your manager is tomorrow — review brief is ready."
 ```
 
-Works with **Claude Code** (full support), **Codex CLI**, **Gemini CLI**, **OpenClaw**, **Hermes**, **Copilot Cowork**, **Microsoft Scout** (hooks + commands), and **GitHub Copilot** family + **Copilot Studio** (instructions) — same hooks, same commands, same vault.
+Works with **Claude Code** (full support), **Codex CLI**, **Gemini CLI**, **OpenClaw**, **Hermes** (hooks + commands + subagents, provisional), **Copilot Cowork**, **Microsoft Scout** (hooks + commands), **VS Code Copilot** (near-full, manual lifecycle), and **GitHub Copilot** family + **Copilot Studio** (instructions) — same hooks, same commands, same vault.
 
 Install via `shardmind install` or `git clone` — same vault either way.
 
@@ -224,7 +224,7 @@ I want to reach my Obsidian Mind vault from this repository. The vault is at [/a
 ## 📋 Requirements
 
 - [Obsidian](https://obsidian.md) 1.12+ (for CLI support)
-- An AI coding agent — **full support**: [Claude Code](https://docs.anthropic.com/en/docs/claude-code); **hooks + commands**: [Codex CLI](https://github.com/openai/codex), [Gemini CLI](https://github.com/google-gemini/gemini-cli), OpenClaw, Hermes, Copilot Cowork, Microsoft Scout; **instructions only**: [GitHub Copilot](https://github.com/features/copilot) family, [Copilot Studio](https://www.microsoft.com/en-us/microsoft-copilot/copilot-studio)
+- An AI coding agent — **full support**: [Claude Code](https://docs.anthropic.com/en/docs/claude-code); **hooks + commands + subagents**: [Codex CLI](https://github.com/openai/codex), [Gemini CLI](https://github.com/google-gemini/gemini-cli), OpenClaw, Hermes (commands + subagents provisional); **hooks + commands**: Copilot Cowork, Microsoft Scout; **near-full (manual lifecycle)**: VS Code Copilot; **instructions only**: [GitHub App / Copilot cloud agent](https://github.com/features/copilot), GitHub Copilot CLI, [Copilot Studio](https://www.microsoft.com/en-us/microsoft-copilot/copilot-studio)
 - [Node 22+ LTS](https://nodejs.org) (for hook scripts — typically already installed alongside Claude Code / Codex / Gemini CLI)
 - Git (for version history)
 - [QMD](https://github.com/tobi/qmd) (optional, for semantic search)
@@ -274,40 +274,53 @@ SessionStart loads **lightweight context** — small excerpts from key files, fi
 
 ### 🌐 Using with Other Agents
 
-obsidian-mind supports 11 agents across three tiers. The vault conventions in `CLAUDE.md`, the hook scripts in `.claude/scripts/`, and the commands in `.claude/commands/` are all agent-agnostic — pure Markdown, TypeScript, and shell with no SDK dependencies.
+obsidian-mind supports 11 agents across four tiers. The vault conventions in `CLAUDE.md`, the hook scripts in `.claude/scripts/`, and the commands in `.claude/commands/` are all agent-agnostic — pure Markdown, TypeScript, and shell with no SDK dependencies.
 
-#### Tier 1 — Full support
+| Tier | What it means |
+|------|---------------|
+| **Full** | Hooks, commands, subagents, and memory all wired |
+| **Near-full (manual lifecycle)** | Commands and instructions work; hooks must be triggered manually |
+| **Hooks + commands** | Hooks and commands wired; subagent support partial or provisional |
+| **Instructions only** | No hooks API, no native command invocation |
+
+#### Tier 1 — Full
 
 **Claude Code** — hooks, commands, subagents, and the memory system all work out of the box. Every feature in this README is available.
 
-#### Tier 2 — Hooks + commands
+#### Tier 2 — Near-full (manual lifecycle)
 
-All six agents below wire the same five hook scripts via their respective config files:
+**VS Code Copilot** — prompt files in `.github/prompts/` give genuine `/om-*` slash invocation; chat modes in `.github/chatmodes/` approximate subagents; VS Code Tasks wire the hook scripts manually. Lifecycle hooks do not fire automatically — run them via the VS Code command palette or Tasks. See `.github/copilot-instructions.md` for full details.
 
-| Agent | Config file | Native entry point |
-|-------|-------------|-------------------|
-| **Codex CLI** | `.codex/hooks.json` | `AGENTS.md` (read natively) |
-| **Gemini CLI** | `.gemini/settings.json` | `GEMINI.md` (read natively) |
-| **OpenClaw** | `.openclaw/settings.json` | `.openclaw/OPENCLAW.md` |
-| **Hermes** | `.hermes/settings.json` | `.hermes/HERMES.md` |
-| **Copilot Cowork** | `.cowork/settings.json` | `.cowork/COWORK.md` |
-| **Microsoft Scout** | `.scout/settings.json` | `.scout/SCOUT.md` |
+#### Tier 3 — Hooks + commands
 
-Commands work as slash commands (`/om-standup`) in most agents. For Codex CLI and Hermes, type the command name as a regular prompt without the `/` prefix (e.g. `om-standup`).
+All agents below wire the same five hook scripts. OpenClaw and Hermes now also have native command and subagent directories.
+
+| Agent | Config file | Native entry point | Commands | Subagents |
+|-------|-------------|-------------------|----------|-----------|
+| **Codex CLI** | `.codex/hooks.json` | `AGENTS.md` (read natively) | `.claude/commands/` | `.agents/skills/` (Codex Skills) |
+| **Gemini CLI** | `.gemini/settings.json` | `GEMINI.md` (read natively) | `.claude/commands/` | `.gemini/agents/` |
+| **OpenClaw** | `.openclaw/settings.json` | `.openclaw/OPENCLAW.md` | `.openclaw/commands/` ² | `.openclaw/agents/` ² |
+| **Hermes** | `.hermes/settings.json` | `.hermes/HERMES.md` | `.hermes/commands/` ² | `.hermes/agents/` ² |
+| **Copilot Cowork** | `.cowork/settings.json` | `.cowork/COWORK.md` | `.claude/commands/` | — |
+| **Microsoft Scout** | `.scout/settings.json` | `.scout/SCOUT.md` | `.claude/commands/` | — |
+
+Commands work as slash commands (`/om-standup`) for OpenClaw and most agents. For Codex CLI and Hermes, type the command name as a regular prompt without the `/` prefix (e.g. `om-standup`).
 
 > [!NOTE]
-> Event names for **Copilot Cowork** and **Microsoft Scout** are **provisional** — borrowed from Claude Code's vocabulary until those agents publish their full hook vocabularies. If your agent uses different canonical event names, update `settings.json` accordingly. The hook scripts themselves require no changes. See [`docs/agent-setup.md`](docs/agent-setup.md) for troubleshooting.
+> Event names for **Copilot Cowork** and **Microsoft Scout** are **provisional** — borrowed from Claude Code's vocabulary until those agents publish their full hook vocabularies. If your agent uses different canonical event names, update `settings.json` accordingly. The hook scripts themselves require no changes.
 
-#### Tier 3 — Instructions only (no hooks API)
+> [!NOTE]
+> ² Command and subagent directories for **OpenClaw** (`.openclaw/commands/`, `.openclaw/agents/`) and **Hermes** (`.hermes/commands/`, `.hermes/agents/`) were created under best-effort conventions. OpenClaw and Hermes do not have fully published command/subagent discovery specifications at the time of writing — verify the discovery paths and frontmatter schemas against your agent's documentation. Once confirmed, tier upgrades to **Full**.
+
+#### Tier 4 — Instructions only (no hooks API)
 
 | Agent | Config / entry point |
 |-------|---------------------|
-| **VS Code Copilot** | `.github/copilot-instructions.md` + `.github/instructions/vault.instructions.md` (auto-applied to `.md` files) |
 | **GitHub App / Copilot cloud agent** | `.github/copilot-instructions.md` |
 | **GitHub Copilot CLI** | `.github/copilot-instructions.md` |
 | **Microsoft Copilot Studio** | `.copilot-studio/AGENT.md` |
 
-Hook scripts can still be run manually for these agents:
+Hook scripts can still be run manually for any of these agents:
 ```
 node --disable-warning=ExperimentalWarning --experimental-strip-types .claude/scripts/<script>.ts
 ```
@@ -315,8 +328,6 @@ Or wire them as VS Code Tasks.
 
 > [!NOTE]
 > See `AGENTS.md` for the full portability matrix and per-agent setup instructions. See [`docs/agent-setup.md`](docs/agent-setup.md) for copy-paste setup prompts and troubleshooting.
-
----
 
 ## 🧠 Reach Your Vault From Any Repo
 
@@ -599,8 +610,17 @@ templates/              Obsidian templates with YAML frontmatter
 
 .codex/                 Codex CLI hook config (hooks.json)
 .gemini/                Gemini CLI hook config (settings.json)
-.openclaw/              OpenClaw hook config (settings.json) + OPENCLAW.md
-.hermes/                Hermes hook config (settings.json) + HERMES.md
+.openclaw/
+  commands/             Slash commands (OpenClaw-native, mirrors .claude/commands/) ²
+  agents/               Subagents (OpenClaw-native, mirrors .claude/agents/) ²
+  settings.json         OpenClaw hook config
+  OPENCLAW.md           Vault guide for OpenClaw
+
+.hermes/
+  commands/             Commands with bare-name invocation (mirrors .claude/commands/) ²
+  agents/               Subagents (Hermes-native, mirrors .claude/agents/) ²
+  settings.json         Hermes hook config
+  HERMES.md             Vault guide for Hermes
 .cowork/                Copilot Cowork hook config (settings.json) + COWORK.md
 .scout/                 Microsoft Scout hook config (settings.json) + SCOUT.md
 .github/

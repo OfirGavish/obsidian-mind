@@ -18,7 +18,21 @@ The hook scripts in `.claude/scripts/` are agent-agnostic TypeScript, executed n
 
 ## Commands
 
-Commands live in `.claude/commands/` — agent-agnostic markdown with YAML frontmatter. `brain/Skills.md` is the catalog.
+Native command files live in `.hermes/commands/` — invoke by typing the bare name as a prompt (e.g. `om-standup`, `om-dump`) without the `/` prefix. `brain/Skills.md` is the catalog.
+
+> [!note] Provisional
+> The discovery path (`.hermes/commands/`) and frontmatter schema are best-effort — Hermes does not have a fully published command discovery specification at the time of writing. If your version of Hermes discovers commands from a different path or expects different frontmatter, move or adapt the files accordingly.
+
+The command files in `.hermes/commands/` are **copies of `.claude/commands/`** with slash-prefix removed from Usage sections (e.g. `om-standup` instead of `/om-standup`) and must be kept in sync manually. When updating a command in `.claude/commands/`, apply the same change to `.hermes/commands/` — remembering to keep the bare-name invocation style.
+
+## Subagents
+
+Native subagent files live in `.hermes/agents/` — 9 definitions for isolated tasks (brag spotting, vault auditing, cross-linking, etc.). These mirror `.claude/agents/` exactly.
+
+> [!note] Provisional
+> The discovery path (`.hermes/agents/`) and frontmatter schema (`name`, `description`, `tools`, `model`, `maxTurns`, `skills`) are best-effort. Verify against your Hermes version's subagent documentation. If the schema differs, adapt the frontmatter in each `.hermes/agents/*.md` file; the prompt body content is agent-agnostic and needs no changes.
+
+The subagent files in `.hermes/agents/` must be kept in sync with `.claude/agents/` manually. When updating a subagent in `.claude/agents/`, apply the same change to `.hermes/agents/`.
 
 ## Memory
 
