@@ -38,6 +38,37 @@ All hook-capable agents share the same five scripts in `.claude/scripts/`:
 | `pre-compact.ts` | Back up session transcript before context compaction |
 | `stop-checklist.ts` | End-of-session hygiene checklist |
 
+**Maintenance utility:** `.claude/scripts/verify-ports.ts` checks that ported files (commands, agents, skills) have not drifted from their canonical `.claude/` sources. Run it before merging skill changes — it is not a lifecycle hook and is not added to any agent's config.
+
+```bash
+node --disable-warning=ExperimentalWarning --experimental-strip-types .claude/scripts/verify-ports.ts
+```
+
+---
+
+## om-capture Skill
+
+The `om-capture` skill teaches agents to proactively spot durable knowledge mid-conversation and offer to record it — rather than waiting for `/om-dump` or `/om-wrap-up`. **Confirm-before-write is the default**; autonomous capture is opt-in.
+
+The skill is ported to every agent:
+
+| Agent | Port location | Notes |
+|-------|--------------|-------|
+| Claude Code | `.claude/skills/om-capture/` | Canonical |
+| Codex CLI | `.agents/skills/om-capture/` | Provisional ¹ |
+| Gemini CLI | `.gemini/skills/om-capture/` | Provisional ¹ |
+| OpenClaw | `.openclaw/skills/om-capture/` | Provisional ² |
+| Hermes | `.hermes/skills/om-capture/` | Provisional ²; ephemerality note included |
+| VS Code Copilot | `.github/chatmodes/om-capture.chatmode.md` | Chat mode (same context window) |
+| Copilot Cowork | `.cowork/skills/om-capture/` | Provisional ¹; concurrency safety note included |
+| Microsoft Scout | `.scout/skills/om-capture/` | Provisional ¹; ephemerality warning included |
+| Copilot Studio | `.copilot-studio/AGENT.md` § *Proactive Capture* | Instructions-only; no executable skill file |
+
+¹ Discovery path provisional — see the skill file's own note.
+² Discovery path and schema best-effort — see `.openclaw/OPENCLAW.md` and `.hermes/HERMES.md`.
+
+Scout and Copilot Studio have no `stop-checklist.ts` nudge at session end, making proactive mid-session capture especially important for those agents.
+
 ---
 
 ## Setup Prompts

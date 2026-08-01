@@ -519,6 +519,35 @@ Specialized agents that run in isolated context windows. They handle heavy opera
 
 ---
 
+## 🔔 Proactive Capture
+
+Most capture commands are **pull-based** — you run `/om-dump` or `/om-wrap-up` to file things away. The `om-capture` skill makes capture **proactive**: the agent notices capture-worthy moments mid-conversation and offers to record them, without waiting for you to ask.
+
+```
+Agent: "That sounds like a durable gotcha — want me to record it in [[Gotchas]]?"
+You:   "yes"
+Agent: ✓ appended to brain/Gotchas.md, added [[wikilink]] to the project note
+```
+
+**Confirm-before-write is the default.** The agent names the signal and the destination, asks, and only writes after you approve. Surprise diffs in a git-tracked vault erode trust — you should be able to review every write. Autonomous capture is opt-in.
+
+The skill uses the same classification vocabulary as the `UserPromptSubmit` hook (decision, incident, 1:1 content, win, architecture, person context, project update) and applies a durability test before proposing a write: *would this help a future session with no memory of this conversation?* Transient debugging chatter, unverified speculation, and duplicate status noise don't pass the test.
+
+| Signal | Suggested destination |
+|--------|----------------------|
+| Decision + rejected alternative | Decision Record in `work/active/` + `brain/Key Decisions.md` |
+| Non-obvious breakage / root cause | `brain/Gotchas.md` |
+| Reusable constraint / invariant | `brain/Patterns.md` |
+| Praise / shipped work / measurable impact | `perf/Brag Doc.md` |
+| New person or changed relationship | `org/people/<Name>.md` |
+| Project status change | Active project note in `work/active/` |
+
+**This matters most for agents without a `stop-checklist.ts` nudge.** Scout's browsing output is explicitly ephemeral (`.scout/SCOUT.md`), and Copilot Studio has no lifecycle hooks at all — the skill is their primary mechanism for preserving findings. The Scout port carries an ephemerality warning; the Copilot Studio port is a documented section in `.copilot-studio/AGENT.md`.
+
+The skill is ported to every agent directory; see `AGENTS.md` § *Skills* for the full location table.
+
+---
+
 ## 📊 Performance Graph
 
 The vault doubles as a performance tracking system:

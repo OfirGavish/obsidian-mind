@@ -54,6 +54,39 @@ The canonical source of commands is `.claude/commands/` — agent-agnostic markd
 
 The `.openclaw/commands/` and `.hermes/commands/` directories mirror `.claude/commands/` verbatim (OpenClaw) and with slash-prefix removed from Usage sections (Hermes). These must be kept in sync with `.claude/commands/` manually — see `.openclaw/OPENCLAW.md` and `.hermes/HERMES.md` for the sync procedure.
 
+## Skills
+
+The `om-capture` skill teaches agents to proactively spot durable knowledge mid-conversation and offer to record it — rather than waiting for a pull-based command like `/om-dump`. **Confirm-before-write is the default**; autonomous capture is opt-in.
+
+The skill is ported to every agent directory:
+
+| Agent | Port location |
+|-------|--------------|
+| Claude Code | `.claude/skills/om-capture/` |
+| Codex CLI | `.agents/skills/om-capture/` ¹ |
+| Gemini CLI | `.gemini/skills/om-capture/` ¹ |
+| OpenClaw | `.openclaw/skills/om-capture/` ² |
+| Hermes | `.hermes/skills/om-capture/` ² |
+| VS Code Copilot | `.github/chatmodes/om-capture.chatmode.md` |
+| Copilot Cowork | `.cowork/skills/om-capture/` ¹ |
+| Microsoft Scout | `.scout/skills/om-capture/` ¹ |
+| Microsoft Copilot Studio | `.copilot-studio/AGENT.md` § *Proactive Capture* |
+
+¹ Discovery path is provisional — see the skill file's own note.
+² Discovery path and schema are best-effort — see `.openclaw/OPENCLAW.md` and `.hermes/HERMES.md` for details.
+
+Scout and Copilot Studio have the weakest durability story: Scout's research output is ephemeral (no `stop-checklist.ts` nudge at session end), and Copilot Studio has no lifecycle hooks at all. The Scout port carries an explicit ephemerality warning; the Copilot Studio port is a documented section in `AGENT.md` rather than an executable skill file.
+
+## Maintenance Utilities
+
+`.claude/scripts/verify-ports.ts` is a **maintenance script** — not a lifecycle hook. It discovers ported files by reading sync-with declarations in each file, compares each port's substantive body against its canonical `.claude/` source, and exits non-zero when drift is found. Run it to check for stale ports before merging skill changes:
+
+```bash
+node --disable-warning=ExperimentalWarning --experimental-strip-types .claude/scripts/verify-ports.ts
+```
+
+This script is documented here for visibility; it is **not** added to any agent's hook config and does not run automatically.
+
 ## Memory
 
 The vault's memory lives in `brain/` — `Memories.md`, `Patterns.md`, `Key Decisions.md`, `Gotchas.md`. These are plain markdown files that any agent can read and write. When you learn something worth remembering, write it to the relevant `brain/` topic note with a wikilink to context.

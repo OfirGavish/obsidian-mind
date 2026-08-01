@@ -147,6 +147,45 @@ Copilot Studio has no direct filesystem access. Instead of duplicating vault con
 
 ---
 
+## Proactive Capture
+
+Copilot Studio has **no lifecycle hooks** — there is no `stop-checklist.ts` nudge, and no `UserPromptSubmit` classifier fires automatically. Any knowledge that surfaces mid-conversation is lost unless you capture it yourself before the session ends.
+
+**Capture mid-conversation, not just at the end.** When you notice a durable signal, surface it and ask before writing:
+
+> "This sounds like a durable gotcha — want me to record it in `[[Gotchas]]`?"
+> "We just made a decision and rejected an alternative — want me to add a Decision Record and a line in `[[Key Decisions]]`?"
+> "That looks brag-worthy — want me to add it to `[[Brag Doc]]` and link the evidence note?"
+
+### What to capture
+
+| Signal | Destination |
+|--------|-------------|
+| Decision + rejected alternative | Decision Record in `work/active/` + `brain/Key Decisions.md` |
+| Non-obvious breakage / root cause | `brain/Gotchas.md` |
+| Reusable constraint / invariant | `brain/Patterns.md` |
+| Praise / shipped work / measurable impact | `perf/Brag Doc.md` |
+| New person or changed relationship | `org/people/<Name>.md` |
+| Project status change | Active project note in `work/active/` |
+
+### Durability test
+
+Before proposing a write, ask: *would this help a future session with no memory of this conversation?* Capture it only if yes. Transient debugging chatter, unverified speculation, and duplicate status noise do not pass the test.
+
+### Confirm before writing (default)
+
+Always ask for confirmation before writing. Only skip confirmation when the user has explicitly opted into autonomous capture. If you do write autonomously, summarize every change immediately.
+
+### Write-correctness rules
+
+- Every new note needs at least one `[[wikilink]]` and one inbound link.
+- Keep live project status single-sourced in the project note; all other notes link to it.
+- Mark facts not verified against a primary source with `(unverified)` or `(inferred)`.
+- Date-stamp volatile facts (versions, counts, org structure, tool maturity).
+- Never write to `memories/YYYY/MM/` directly — that tree is written by the `om` MCP server.
+
+---
+
 ## Hard Rules
 
 - **Never touch `.obsidian/`** — vault configuration is managed by Obsidian and must not be modified.
