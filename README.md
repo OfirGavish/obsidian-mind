@@ -454,6 +454,8 @@ Every read is logged with the calling repo, so "what did that session actually s
 
 **Want the mechanics?** `ARCHITECTURE.md` → *Reaching the Vault From Another Repo* walks the whole layer with diagrams: the four MCP surfaces and why the non-tool ones matter, the identity handshake, a `search` call traced end to end, how each memory's reach is evaluated, the write path, and every failure mode against the signal that reveals it.
 
+**Want the step-by-step?** [`docs/mcp-integration.md`](docs/mcp-integration.md) covers registration, the repo-side instruction template, per-agent setup, memory-scoping guidance, and the boundary between `om-capture` (inside the vault) and MCP writes (from another repo).
+
 ---
 
 ## 📅 Daily Workflow
