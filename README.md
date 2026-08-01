@@ -13,7 +13,7 @@
 [![Hermes](https://img.shields.io/badge/hermes-hooks%20%2B%20commands%20%2B%20subagents-C0392B)](.hermes/settings.json)
 [![Copilot Cowork](https://img.shields.io/badge/copilot%20cowork-hooks%20%2B%20commands-0078D4)](.cowork/settings.json)
 [![Microsoft Scout](https://img.shields.io/badge/microsoft%20scout-hooks%20%2B%20commands-00B4D8)](.scout/settings.json)
-[![GitHub Copilot](https://img.shields.io/badge/github%20copilot-instructions-24292E)](https://github.com/features/copilot)
+[![VS Code Copilot](https://img.shields.io/badge/vs%20code%20copilot-near--full%20(manual)-24292E)](https://github.com/features/copilot)
 [![Copilot Studio](https://img.shields.io/badge/copilot%20studio-instructions-8764B8)](https://www.microsoft.com/en-us/microsoft-copilot/copilot-studio)
 [![Obsidian](https://img.shields.io/badge/obsidian-1.12%2B-7C3AED)](https://obsidian.md)
 [![Obsidian CLI](https://img.shields.io/badge/obsidian--cli-integrated-E6E6E6)](https://github.com/kepano/obsidian-cli)
@@ -626,6 +626,10 @@ templates/              Obsidian templates with YAML frontmatter
 .github/
   copilot-instructions.md   Vault guide for GitHub Copilot family
   instructions/             Path-scoped instructions (vault.instructions.md)
+  prompts/                  Copilot prompt files — one per om-* command, real /name invocation in Chat
+  chatmodes/                Copilot chat modes — subagent-equivalent personas
+.vscode/
+  tasks.json                VS Code Tasks for hook script execution + folder-open auto-task (session-start)
 .copilot-studio/        Copilot Studio guide (AGENT.md) + knowledge-config.md
 
 .scripts/                Vault-level tooling — QMD bootstrap (run once on a fresh clone)

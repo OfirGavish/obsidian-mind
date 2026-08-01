@@ -15,7 +15,7 @@ A longer-form companion to the [README's "Tell Your Agent To Set It Up" section]
 | Hermes | `.hermes/settings.json` | Hooks + commands ² | `.hermes/HERMES.md` |
 | Copilot Cowork | `.cowork/settings.json` | Hooks + commands | `.cowork/COWORK.md` |
 | Microsoft Scout | `.scout/settings.json` | Hooks + commands | `.scout/SCOUT.md` |
-| VS Code Copilot | `.github/copilot-instructions.md` | Near-full (manual lifecycle) | `.github/copilot-instructions.md` |
+| VS Code Copilot | `.github/copilot-instructions.md`, `.github/prompts/`, `.github/chatmodes/`, `.vscode/tasks.json` | Near-full (manual lifecycle) | `.github/copilot-instructions.md` |
 | GitHub App / Copilot cloud agent | `.github/copilot-instructions.md` | Instructions only | `.github/copilot-instructions.md` |
 | GitHub Copilot CLI | `.github/copilot-instructions.md` | Instructions only | `.github/copilot-instructions.md` |
 | Microsoft Copilot Studio | `.copilot-studio/AGENT.md` | Instructions only | `.copilot-studio/AGENT.md` |
@@ -74,43 +74,33 @@ Read .hermes/HERMES.md and CLAUDE.md. Verify hooks are configured in .hermes/set
 Confirm that your version of Hermes discovers commands from .hermes/commands/ using bare-name prompts (e.g. typing "om-standup" without a slash). If the discovery path or invocation style differs, report what your agent expects. If the frontmatter schema differs, report the expected schema. Note that Hermes's internal skill memory is session-level only — durable knowledge must be written to brain/ topic notes. Report HERMES_PROJECT_DIR status and whether all five hook scripts resolve.
 ```
 
-### GitHub Copilot family (VS Code Copilot, GitHub App / Copilot cloud agent, GitHub Copilot CLI)
+### VS Code Copilot
 
 ```
-Read .github/copilot-instructions.md — this is your vault operating guide. For VS Code Copilot, also confirm that .github/instructions/vault.instructions.md is present and will be applied to .md files (it has applyTo: "**/*.md" in its frontmatter). Since Copilot has no hooks API, the hook scripts in .claude/scripts/ must be run manually or wired as VS Code Tasks. To run manually:
+Read .github/copilot-instructions.md — this is your vault operating guide. Also confirm that .github/instructions/vault.instructions.md is present and will be applied to .md files (it has applyTo: "**/*.md" in its frontmatter).
+
+Verify the following VS Code Copilot capabilities:
+1. Prompt files: confirm that .github/prompts/ contains om-*.prompt.md files and that they appear as /om-standup, /om-dump, etc. in the Copilot Chat slash-command menu.
+2. Chat modes: confirm that .github/chatmodes/ contains *.chatmode.md files and that they appear in the Copilot Chat mode picker.
+3. VS Code Tasks: confirm that .vscode/tasks.json is present and contains tasks for session-start, stop-checklist, validate-write, classify-message, and pre-compact. Confirm that "om: session start" has runOn: "folderOpen" so it runs automatically when the vault folder opens in VS Code.
+
+Since there is no hooks API, all hook scripts must be triggered manually via Tasks (Terminal → Run Task) or the command line:
   node --disable-warning=ExperimentalWarning --experimental-strip-types .claude/scripts/session-start.ts
   node --disable-warning=ExperimentalWarning --experimental-strip-types .claude/scripts/stop-checklist.ts
-Report whether the instructions files are present and summarise the vault conventions you found.
+
+Report whether all three capabilities are wired and summarise the vault conventions you found.
 ```
 
-#### Wiring as VS Code Tasks
+> [!NOTE]
+> The `om: session start` task runs automatically on folder open (`runOn: folderOpen`). To disable it, use **Terminal → Manage Automatic Tasks in Folder** in VS Code (or `Tasks: Manage Automatic Tasks` in the Command Palette). **Write validation (`om: validate write`) does NOT fire silently after every note edit** — you must run it manually. A user who believes frontmatter is being validated when it is not is worse off than one who knows to run the task.
 
-Add this to `.vscode/tasks.json` in the vault root to run hooks from the VS Code command palette:
+### GitHub App / Copilot cloud agent, GitHub Copilot CLI
 
-```json
-{
-  "version": "2.0.0",
-  "tasks": [
-    {
-      "label": "om: Session Start",
-      "type": "shell",
-      "command": "node --disable-warning=ExperimentalWarning --experimental-strip-types .claude/scripts/session-start.ts",
-      "presentation": { "reveal": "always" }
-    },
-    {
-      "label": "om: Stop Checklist",
-      "type": "shell",
-      "command": "node --disable-warning=ExperimentalWarning --experimental-strip-types .claude/scripts/stop-checklist.ts",
-      "presentation": { "reveal": "always" }
-    },
-    {
-      "label": "om: Validate Write",
-      "type": "shell",
-      "command": "node --disable-warning=ExperimentalWarning --experimental-strip-types .claude/scripts/validate-write.ts",
-      "presentation": { "reveal": "always" }
-    }
-  ]
-}
+```
+Read .github/copilot-instructions.md — this is your vault operating guide. There is no hooks API; the hook scripts in .claude/scripts/ must be run manually. To run manually:
+  node --disable-warning=ExperimentalWarning --experimental-strip-types .claude/scripts/session-start.ts
+  node --disable-warning=ExperimentalWarning --experimental-strip-types .claude/scripts/stop-checklist.ts
+Report whether the instructions file is present and summarise the vault conventions you found.
 ```
 
 ### Copilot Studio
