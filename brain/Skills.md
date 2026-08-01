@@ -56,6 +56,12 @@ Custom slash commands, subagents, and reusable workflows. Defined in `.claude/co
 | `/om-project-archive` | Move completed project from `work/active/` to `work/archive/YYYY/`, update all indexes — moves whole `active/<Topic>/` clusters intact |
 | `/om-tidy` | Self-maintenance pass — acts on every hygiene flag: archives completed work, groups clusters, splits oversized notes, reports open loops. Never deletes, never commits |
 
+## Agent Skills
+
+| Skill | Purpose |
+|------|---------|
+| `om-capture` | Proactive mid-conversation capture — spots durable knowledge, asks before writing by default, and routes approved learnings into the right vault notes |
+
 ## Usage Notes
 
 **Daily:**
